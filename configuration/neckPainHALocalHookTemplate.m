@@ -1,4 +1,4 @@
-function continuousHALocalHook
+function neckPainHALocalHook
 
 %  continuousHALocalHook
 %
@@ -26,7 +26,7 @@ function continuousHALocalHook
 
 
 %% Say hello.
-projectName = 'continuousHA';
+projectName = 'neckPainHA';
 
 %% Delete any old prefs
 if (ispref(projectName))
@@ -37,12 +37,12 @@ end
 [~, userID] = system('whoami');
 userID = strtrim(userID);
 
-Pfizer_dataBasePath = ['/Users/' userID '/OneDrive - Children"s Hospital of Philadelphia/Research/Pfizer Registry/Data/continuousHA/'];
-contHA_analysisBasePath = ['/Users/' userID '/OneDrive - Children''s Hospital of Philadelphia/Research/Pfizer Registry/Analysis/continuousHA'];
+Pfizer_dataBasePath = ['/Users/' userID '/OneDrive - Children"s Hospital of Philadelphia/Research/Pfizer Registry/Data/neckPainHA/'];
+neckPainHA_analysisBasePath = ['/Users/' userID '/OneDrive - Children''s Hospital of Philadelphia/Research/Pfizer Registry/Analysis/neckPainHA'];
 
 %% Specify where output goes (for mac)
 
 % Code to run on Mac plaform
 setpref(projectName,'pfizerDataPath', Pfizer_dataBasePath);
-setpref(projectName,'contHaAnalysisPath', contHA_analysisBasePath);
+setpref(projectName,'neckPainAnalysisPath', neckPainHA_analysisBasePath);
 
