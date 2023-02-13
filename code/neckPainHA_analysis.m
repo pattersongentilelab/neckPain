@@ -60,6 +60,23 @@ data_comp.severity_grade(data_comp.p_sev_overall=='mild') = 1;
 data_comp.severity_grade(data_comp.p_sev_overall=='mod') = 2;
 data_comp.severity_grade(data_comp.p_sev_overall=='sev') = 3;
 
+% activity as a trigger
+data_comp.active = NaN*ones(height(data_comp),1);
+data_comp.active(data_comp.p_activity == 'feel_worse' | data_comp.p_trigger___exercise==0) = 1;
+data_comp.active((data_comp.p_activity == 'feel_better' | data_comp.p_activity == 'no_change' | data_comp.p_activity == 'move') & data_comp.p_trigger___exercise==0) = 0;
+
+% Determine if valsalva is a trigger for headache
+data_comp.valsalva = sum(table2array(data_comp(:,158:160)),2);
+data_comp.valsalva(data_comp.valsalva>0) = 1;
+
+% Determine if headache is positional
+data_comp.position = zeros(height(data_comp),1);
+data_comp.position(data_comp.p_valsalva_position___stand==0 & data_comp.p_valsalva_position___lie==0 & (data_comp.p_valsalva_position___none==1 | data_comp.valsalva==1)) = 1;
+data_comp.position(data_comp.p_valsalva_position___stand==1 & data_comp.p_valsalva_position___lie==0) = 2;
+data_comp.position(data_comp.p_valsalva_position___stand==0 & data_comp.p_valsalva_position___lie==1) = 3;
+data_comp.position(data_comp.p_valsalva_position___stand==1 & data_comp.p_valsalva_position___lie==1) = 4;
+data_comp.position = categorical(data_comp.position,[0 1 2 3 4],{'missing','neither','worse_stand','worse_lie','both'});
+
 %% Demographics
 
 % Age
@@ -107,3 +124,12 @@ fprintf('pressure: neck pain pressure = %3i no pressure = %3i, no neck pain pres
 
 [tbl,chi2,p] = crosstab(data_comp.pulsate,data_comp.neckPain);
 fprintf('pulsate: neck pain pulsate = %3i no pulsate = %3i, no neck pain pulsate = %3i no pulsate = %3i, Chi2 = %1.1f, p = %3.2d \n',[tbl(2,2) tbl(1,2) tbl(2,1) tbl(1,1) chi2 p]);
+
+
+%% Headache diagnosis
+
+ICHD3 = ichd3_Dx(data_comp);
+
+[tbl,chi2,p] = crosstab(ICHD3.dx,data_comp.neckPain);
+fprintf('dx: Chi2 = %1.1f, p = %3.2d \n',[chi2 p]);
+

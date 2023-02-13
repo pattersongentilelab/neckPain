@@ -58,6 +58,24 @@ data_comp.severity_grade(data_comp.p_sev_overall=='mild') = 1;
 data_comp.severity_grade(data_comp.p_sev_overall=='mod') = 2;
 data_comp.severity_grade(data_comp.p_sev_overall=='sev') = 3;
 
+% categorize pain quality types
+data_comp.pulsate = sum(table2array(data_comp(:,[85 86 95])),2);
+data_comp.pulsate(data_comp.pulsate>1) = 1;
+data_comp.pressure = sum(table2array(data_comp(:,[88:90 93])),2);
+data_comp.pressure(data_comp.pressure>1) = 1;
+data_comp.neuralgia = sum(table2array(data_comp(:,[87 91 92 94])),2);
+data_comp.neuralgia(data_comp.neuralgia>1) = 1;
+
+% Determine if valsalva is a trigger for headache
+data_comp.valsalva = sum(table2array(data_comp(:,158:160)),2);
+data_comp.valsalva(data_comp.valsalva>0) = 1;
+
+% determine total count for triggers (overall 26 total possible)
+data_comp.triggerN = sum(table2array(data_comp(:,[129:151 161 162 627])),2);
+
+% determine total count for associated symptoms (overall 13 total possible)
+data_comp.assocSxN = sum(table2array(data_comp(:,[170 171 207 209 212:217 219 221 222])),2);
+
 %% Demographics
 
 % Age
@@ -96,3 +114,11 @@ fprintf('overall headache severity vs. anxiety/depression: Chi2 = %1.1f, p = %3.
 [p,tbl,stats] = kruskalwallis(data_comp.freq_bad,data_comp.anxdep);
 multcompare(stats)
 fprintf('bad headache frequency vs. anxiety/depression: Chi2 = %1.1f, p = %3.2d \n',[tbl{2,5} p]);
+
+
+%% Headache diagnosis
+
+ICHD3 = ichd3_Dx(data_comp);
+
+[tbl,chi2,p] = crosstab(ICHD3.dx,data_comp.anxdep);
+fprintf('dx: Chi2 = %1.1f, p = %3.2d \n',[chi2 p]);
