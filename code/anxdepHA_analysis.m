@@ -22,10 +22,10 @@ data_incomp = data_age(psych_ros==0 | isnan(data_age.p_pedmidas_score),:);
 
 % Pedmidas, main outcome variable, convert PedMIDAS score to grade
 data_comp.pedmidas_grade = NaN*ones(height(data_comp),1);
-data_comp.pedmidas_grade(data_comp.p_pedmidas_score<=10) = 0;
-data_comp.pedmidas_grade(data_comp.p_pedmidas_score>10 & data_comp.p_pedmidas_score<=30) = 1;
-data_comp.pedmidas_grade(data_comp.p_pedmidas_score>30 & data_comp.p_pedmidas_score<=50) = 2;
-data_comp.pedmidas_grade(data_comp.p_pedmidas_score>50) = 3;
+data_comp.pedmidas_grade(data_comp.p_pedmidas_score<=10) = 1;
+data_comp.pedmidas_grade(data_comp.p_pedmidas_score>10 & data_comp.p_pedmidas_score<=30) = 2;
+data_comp.pedmidas_grade(data_comp.p_pedmidas_score>30 & data_comp.p_pedmidas_score<=50) = 3;
+data_comp.pedmidas_grade(data_comp.p_pedmidas_score>50) = 4;
 
 % Categorize main predictor variable, anxiety only, depression only, both,
 % neither
@@ -34,8 +34,16 @@ data_comp.anxdep(data_comp.p_psych_prob___anxiety==0 & data_comp.p_psych_prob___
 data_comp.anxdep(data_comp.p_psych_prob___anxiety==1 & data_comp.p_psych_prob___depress==0) = 1;
 data_comp.anxdep(data_comp.p_psych_prob___anxiety==0 & data_comp.p_psych_prob___depress==1) = 2;
 data_comp.anxdep(data_comp.p_psych_prob___anxiety==1 & data_comp.p_psych_prob___depress==1) = 3;
-
+data_comp.anxdep2 = data_comp.anxdep;
 data_comp.anxdep = categorical(data_comp.anxdep,[0 1 2 3],{'neither','anxiety','depression','anxietydepression'});
+
+data_comp.anxiety = NaN*ones(height(data_comp),1);
+data_comp.anxiety(data_comp.p_psych_prob___anxiety==0) = 0;
+data_comp.anxiety(data_comp.p_psych_prob___anxiety==1) = 1;
+
+data_comp.depression = NaN*ones(height(data_comp),1);
+data_comp.depression(data_comp.p_psych_prob___depress==0) = 0;
+data_comp.depression(data_comp.p_psych_prob___depress==1) = 1;
 
 % Determine daily/continuous headache
 data_comp.dailycont = zeros(height(data_comp),1);
@@ -76,45 +84,17 @@ data_comp.triggerN = sum(table2array(data_comp(:,[129:151 161 162 627])),2);
 % determine total count for associated symptoms (overall 13 total possible)
 data_comp.assocSxN = sum(table2array(data_comp(:,[170 171 207 209 212:217 219 221 222])),2);
 
-%% Demographics
+% Convert race and ethnicity into numbers
 
-% Age
-age_none = prctile(data_comp.age(data_comp.anxdep=='neither'),[25,50,75]);
-fprintf('age no anxiety/depression %3.1f [%3.1f, %3.1f]\n',[age_none(2) age_none(1) age_none(3)]);
-age_anx = prctile(data_comp.age(data_comp.anxdep=='anxiety'),[25,50,75]);
-fprintf('age anxiety %3.1f [%3.1f, %3.1f]\n',[age_anx(2) age_anx(1) age_anx(3)]);
-age_dep = prctile(data_comp.age(data_comp.anxdep=='depression'),[25,50,75]);
-fprintf('age depression %3.1f [%3.1f, %3.1f]\n',[age_dep(2) age_dep(1) age_dep(3)]);
-age_anxdep = prctile(data_comp.age(data_comp.anxdep=='anxietydepression'),[25,50,75]);
-fprintf('age anxiety+depression %3.1f [%3.1f, %3.1f]\n',[age_anxdep(2) age_anxdep(1) age_anxdep(3)]);
-[p,tbl,~] = kruskalwallis(data_comp.age,data_comp.anxdep);
-fprintf('age vs. anx/dep Chi2 = %1.1f, p = %3.2d \n',[tbl{2,5} p]);
+% Convert age to years
+data_comp.ageY = floor(data_comp.age);
 
-% Gender (most likely is sex assigned at birth, but need to confirm this, gender ID data is not currently available)
-[tbl,chi2,p] = crosstab(data_comp.gender,data_comp.anxdep);
-disp(tbl)
-fprintf('sex assigned at birth vs. anxdep Chi2 = %1.1f, p = %3.2d \n',[chi2 p]);
+% Reorder race categories to make white (largest group) the reference group
+data_comp.race = reordercats(data_comp.race,{'white','black','asian','am_indian','pacific_island','no_answer','unk'});
 
-%% Comparison with headache burden metrics
-
-% primary outcome PedMIDAS
-[p,tbl,stats] = kruskalwallis(data_comp.pedmidas_grade,data_comp.anxdep);
-multcompare(stats)
-fprintf('pedmidas vs. anxiety/depression: Chi2 = %1.1f, p = %3.2d \n',[tbl{2,5} p]);
-
-% Headache pattern
-[tbl,chi2,p] = crosstab(data_comp.dailycont,data_comp.anxdep)
-
-% severity grade
-[p,tbl,stats] = kruskalwallis(data_comp.severity_grade,data_comp.anxdep);
-multcompare(stats)
-fprintf('overall headache severity vs. anxiety/depression: Chi2 = %1.1f, p = %3.2d \n',[tbl{2,5} p]);
-
-% frequency of bad headaches
-[p,tbl,stats] = kruskalwallis(data_comp.freq_bad,data_comp.anxdep);
-multcompare(stats)
-fprintf('bad headache frequency vs. anxiety/depression: Chi2 = %1.1f, p = %3.2d \n',[tbl{2,5} p]);
-
+% Reorder ethnicity categories to make non-hispanic (largest group) the
+% reference group
+data_comp.ethnicity = reordercats(data_comp.ethnicity,{'no_hisp','hisp','no_answer','unk'});
 
 %% Headache diagnosis
 
@@ -122,3 +102,17 @@ ICHD3 = ichd3_Dx(data_comp);
 
 [tbl,chi2,p] = crosstab(ICHD3.dx,data_comp.anxdep);
 fprintf('dx: Chi2 = %1.1f, p = %3.2d \n',[chi2 p]);
+
+
+
+%% Logistic regression
+% predictor variables: presence of anxiety, depression, age, sex assigned at
+% birth, race, ethnicity
+
+mdl = fitlm(data_comp,'p_pedmidas_score ~ anxdep','RobustOpts','on');
+plotSlice(mdl)
+
+X = [data_comp.anxdep2];
+Y = data_comp.pedmidas_grade;
+[B,dev,stats] = mnrfit(X,Y,'Model','ordinal');
+

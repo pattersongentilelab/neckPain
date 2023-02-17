@@ -75,55 +75,31 @@ data_comp.position(data_comp.p_valsalva_position___stand==0 & data_comp.p_valsal
 data_comp.position(data_comp.p_valsalva_position___stand==1 & data_comp.p_valsalva_position___lie==0) = 2;
 data_comp.position(data_comp.p_valsalva_position___stand==0 & data_comp.p_valsalva_position___lie==1) = 3;
 data_comp.position(data_comp.p_valsalva_position___stand==1 & data_comp.p_valsalva_position___lie==1) = 4;
-data_comp.position = categorical(data_comp.position,[0 1 2 3 4],{'missing','neither','worse_stand','worse_lie','both'});
+data_comp.position = categorical(data_comp.position,[1 2 3 4 0],{'neither','worse_stand','worse_lie','both','missing'});
+data_comp.position = removecats(data_comp.position,{'missing'});
 
-%% Demographics
+% Determine pain laterality
+data_comp.pain_lat = zeros(height(data_comp),1);
+data_comp.pain_lat(data_comp.p_location_side___left==1 & data_comp.p_location_side___right==0 & data_comp.p_location_side___both==0) = 1;
+data_comp.pain_lat(data_comp.p_location_side___left==0 & data_comp.p_location_side___right==1 & data_comp.p_location_side___both==0) = 1;
+data_comp.pain_lat(data_comp.p_location_side___left==1 & data_comp.p_location_side___right==1 & data_comp.p_location_side___both==0) = 2;
+data_comp.pain_lat(data_comp.p_location_side___left==0 & data_comp.p_location_side___right==0 & data_comp.p_location_side___both==1) = 3;
+data_comp.pain_lat(data_comp.p_location_side___left==1 & data_comp.p_location_side___right==1 & data_comp.p_location_side___both==1) = 4;
+data_comp.pain_lat(data_comp.p_location_side___left==1 & data_comp.p_location_side___right==0 & data_comp.p_location_side___both==1) = 4;
+data_comp.pain_lat(data_comp.p_location_side___left==0 & data_comp.p_location_side___right==1 & data_comp.p_location_side___both==1) = 4;
+data_comp.pain_lat(data_comp.p_location_side___cant_desc==1 & data_comp.p_location_side___left==0 & data_comp.p_location_side___right==0 & data_comp.p_location_side___both==0) = 5;
+data_comp.pain_lat = categorical(data_comp.pain_lat,[3 1 2 4 5 0],{'bilateral','side_lock','uni_alt','combination','cant_desc','missing'});
+data_comp.pain_lat = removecats(data_comp.pain_lat,{'missing'});
 
-% Age
-age_neckPain = prctile(data_comp.age(data_comp.neckPain==1),[25,50,75]);
-age_noNeckPain = prctile(data_comp.age(data_comp.neckPain==0),[25,50,75]);
-[p,tbl,~] = kruskalwallis(data_comp.age,data_comp.neckPain);
-fprintf('age: neck pain %3.1f [%3.1f, %3.1f], no neck pain %3.1f [%3.1f, %3.1f], Chi2 = %1.1f, p = %3.2d \n',[age_neckPain(2) age_neckPain(1) age_neckPain(3) age_noNeckPain(2) age_noNeckPain(1) age_noNeckPain(3) tbl{2,5} p]);
+% Convert age to years
+data_comp.ageY = floor(data_comp.age);
 
-% Gender (most likely is sex assigned at birth, but need to confirm this, gender ID data is not currently available)
-[tbl,chi2,p] = crosstab(data_comp.gender,data_comp.neckPain);
-fprintf('sex assigned at birth: neck pain F = %3i M = %3i, no neck pain F = %3i M = %3i, Chi2 = %1.1f, p = %3.2d \n',[tbl(1,2) tbl(2,2) tbl(1,1) tbl(2,1) chi2 p]);
+% Reorder race categories to make white (largest group) the reference group
+data_comp.race = reordercats(data_comp.race,{'white','black','asian','am_indian','pacific_island','no_answer','unk'});
 
-% Race
-[tbl,chi2,p] = crosstab(data_comp.race,data_comp.neckPain);
-fprintf('race: neck pain W = %3i B = %3i A = %3i AI = %3i PI = %3i UNK = %3i NA = %3i, no neck pain W = %3i B = %3i A = %3i AI = %3i PI = %3i UNK = %3i NA = %3i; Chi2 = %1.1f, p = %3.2d \n',...
-    [tbl(7,2) tbl(3,2) tbl(2,2) tbl(1,2) tbl(5,2) tbl(6,2) tbl(4,2) tbl(7,1) tbl(3,1) tbl(2,1) tbl(1,1) tbl(5,1) tbl(6,1) tbl(4,1) chi2 p]);
-
-% ethnicity
-[tbl,chi2,p] = crosstab(data_comp.ethnicity,data_comp.neckPain);
-fprintf('ethnicity: neck pain H = %3i NH = %3i UNK = %3i NA = %3i, no neck pain H = %3i NH = %3i UNK = %3i NA = %3i; Chi2 = %1.1f, p = %3.2d \n',...
-    [tbl(1,2) tbl(3,2) tbl(2,2) tbl(4,2) tbl(1,1) tbl(3,1) tbl(2,1) tbl(4,1) chi2 p]);
-
-
-%% Headache characteristics
-
-% main predictor - daily/continuous vs. intermittent
-[tbl,chi2,p] = crosstab(data_comp.dailycont,data_comp.neckPain);
-fprintf('daily continuous: neck pain daily/cont = %3i not cont = %3i, no neck pain daily/cont = %3i not cont = %3i, Chi2 = %1.1f, p = %3.2d \n',[tbl(2,2) tbl(1,2) tbl(2,1) tbl(1,1) chi2 p]);
-
-[p,tbl,~] = kruskalwallis(data_comp.pedmidas_grade,data_comp.neckPain);
-fprintf('pedmidas vs. neck pain: Chi2 = %1.1f, p = %3.2d \n',[tbl{2,5} p]);
-
-[p,tbl,~] = kruskalwallis(data_comp.severity_grade,data_comp.neckPain);
-fprintf('overall severity vs. neck pain: Chi2 = %1.1f, p = %3.2d \n',[tbl{2,5} p]);
-
-[p,tbl,~] = kruskalwallis(data_comp.freq_bad,data_comp.neckPain);
-fprintf('frequency of bad headaches vs. neck pain: Chi2 = %1.1f, p = %3.2d \n',[tbl{2,5} p]);
-
-% Pain quality
-[tbl,chi2,p] = crosstab(data_comp.neuralgia,data_comp.neckPain);
-fprintf('neuralgiform: neck pain neuralgia = %3i no neuralgia = %3i, no neck pain neuralgia = %3i no neuralgia = %3i, Chi2 = %1.1f, p = %3.2d \n',[tbl(2,2) tbl(1,2) tbl(2,1) tbl(1,1) chi2 p]);
-
-[tbl,chi2,p] = crosstab(data_comp.pressure,data_comp.neckPain);
-fprintf('pressure: neck pain pressure = %3i no pressure = %3i, no neck pain pressure = %3i no pressure = %3i, Chi2 = %1.1f, p = %3.2d \n',[tbl(2,2) tbl(1,2) tbl(2,1) tbl(1,1) chi2 p]);
-
-[tbl,chi2,p] = crosstab(data_comp.pulsate,data_comp.neckPain);
-fprintf('pulsate: neck pain pulsate = %3i no pulsate = %3i, no neck pain pulsate = %3i no pulsate = %3i, Chi2 = %1.1f, p = %3.2d \n',[tbl(2,2) tbl(1,2) tbl(2,1) tbl(1,1) chi2 p]);
+% Reorder ethnicity categories to make non-hispanic (largest group) the
+% reference group
+data_comp.ethnicity = reordercats(data_comp.ethnicity,{'no_hisp','hisp','no_answer','unk'});
 
 
 %% Headache diagnosis
@@ -133,3 +109,9 @@ ICHD3 = ichd3_Dx(data_comp);
 [tbl,chi2,p] = crosstab(ICHD3.dx,data_comp.neckPain);
 fprintf('dx: Chi2 = %1.1f, p = %3.2d \n',[chi2 p]);
 
+ICHD3.dx = reordercats(ICHD3.dx,{'migraine','prob_migraine','tth','tac','ndph_no','pth','other'});
+data_comp.ichd3 = ICHD3.dx;
+
+%% Binary logistic regression
+
+mdl = fitglm(data_comp,'neckPain ~ ageY + gender + dailycont','Distribution','binomial');
