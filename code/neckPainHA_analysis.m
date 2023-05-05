@@ -12,11 +12,27 @@ data = data_raw(data_raw.redcap_repeat_instrument~='visit_diagnoses' & ...
 %% apply exclusion criteria
 
 data_age = data(data.age>=6 & data.age<18,:); % age criteria
+data_start = data_age(data_age.p_current_ha_pattern=='episodic' | data_age.p_current_ha_pattern=='cons_same' | data_age.p_current_ha_pattern=='cons_flare',:); % started the questionnaire
 
-pain_loc = sum(table2array(data_age(:,102:111)),2); % pain location was filled out (neck pain)
-assoc_oth_sx = sum(table2array(data_age(:,211:224)),2); % associated symptoms were filled out (neck pain)
-data_comp = data_age((pain_loc>0 | assoc_oth_sx>0) & (data_age.p_current_ha_pattern=='episodic'|data_age.p_current_ha_pattern=='cons_same'|data_age.p_current_ha_pattern=='cons_flare'),:);
-data_incomp = data_age((pain_loc==0 & assoc_oth_sx==0) | (data_age.p_current_ha_pattern~='episodic' & data_age.p_current_ha_pattern~='cons_same' & data_age.p_current_ha_pattern~='cons_flare'),:);
+% Convert age to years
+data_start.ageY = floor(data_start.age);
+
+% Reorder race categories to make white (largest group) the reference group
+data_start.race = reordercats(data_start.race,{'white','black','asian','am_indian','pacific_island','no_answer','unk'});
+
+% Reorder ethnicity categories to make non-hispanic (largest group) the
+% reference group
+data_start.ethnicity = reordercats(data_start.ethnicity,{'no_hisp','hisp','no_answer','unk'});
+
+pain_loc = sum(table2array(data_start(:,102:111)),2); % pain location was filled out (neck pain)
+assoc_oth_sx = sum(table2array(data_start(:,211:224)),2); % associated symptoms were filled out (neck pain)
+data_comp = data_start(pain_loc>0 | assoc_oth_sx>0,:);
+data_incomp = data_start(pain_loc==0 & assoc_oth_sx==0,:);
+
+data_comp.complete = ones(height(data_comp),1);
+data_incomp.complete = zeros(height(data_incomp),1);
+
+comp_incomp = [data_comp;data_incomp];
 
 %% Define main outcome, and main predictor variables
 
@@ -45,14 +61,6 @@ data_comp.freq_bad (data_comp.p_fre_bad=='2to3wk') = 5;
 data_comp.freq_bad (data_comp.p_fre_bad=='3wk') = 6;
 data_comp.freq_bad (data_comp.p_fre_bad=='daily') = 7;
 data_comp.freq_bad (data_comp.p_fre_bad=='always') = 8;
-
-% categorize pain quality types
-data_comp.pulsate = sum(table2array(data_comp(:,[85 86 95])),2);
-data_comp.pulsate(data_comp.pulsate>1) = 1;
-data_comp.pressure = sum(table2array(data_comp(:,[88:90 93])),2);
-data_comp.pressure(data_comp.pressure>1) = 1;
-data_comp.neuralgia = sum(table2array(data_comp(:,[87 91 92 94])),2);
-data_comp.neuralgia(data_comp.neuralgia>1) = 1;
 
 % rank severity grade
 data_comp.severity_grade = NaN*ones(height(data_comp),1);
@@ -91,27 +99,57 @@ data_comp.pain_lat(data_comp.p_location_side___cant_desc==1 & data_comp.p_locati
 data_comp.pain_lat = categorical(data_comp.pain_lat,[3 1 2 4 5 0],{'bilateral','side_lock','uni_alt','combination','cant_desc','missing'});
 data_comp.pain_lat = removecats(data_comp.pain_lat,{'missing'});
 
-% Convert age to years
-data_comp.ageY = floor(data_comp.age);
 
-% Reorder race categories to make white (largest group) the reference group
-data_comp.race = reordercats(data_comp.race,{'white','black','asian','am_indian','pacific_island','no_answer','unk'});
 
-% Reorder ethnicity categories to make non-hispanic (largest group) the
-% reference group
-data_comp.ethnicity = reordercats(data_comp.ethnicity,{'no_hisp','hisp','no_answer','unk'});
 
 
 %% Headache diagnosis
+data_comp.p_con_pattern_duration = categorical(data_comp.p_con_pattern_duration);
+data_comp.p_epi_fre_dur = categorical(data_comp.p_epi_fre_dur,[1 2 3],{'2wk','1mo','3mo'});
 
 ICHD3 = ichd3_Dx(data_comp);
 
-[tbl,chi2,p] = crosstab(ICHD3.dx,data_comp.neckPain);
-fprintf('dx: Chi2 = %1.1f, p = %3.2d \n',[chi2 p]);
+ICHD3.dx = reordercats(ICHD3.dx,{'migraine','chronic_migraine','prob_migraine','tth','chronic_tth','tac','new_onset','ndph','pth','other_primary','undefined'});
+figure
+histogram(ICHD3.dx)
 
-ICHD3.dx = reordercats(ICHD3.dx,{'migraine','prob_migraine','tth','tac','ndph_no','pth','other'});
-data_comp.ichd3 = ICHD3.dx;
+data_comp.pulsate = ICHD3.pulsate;
+data_comp.pressure = ICHD3.pressure;
+data_comp.neuralgia = ICHD3.neuralgia;
+data_comp.ICHD3dx = ICHD3.dx;
 
 %% Binary logistic regression
 
-mdl = fitglm(data_comp,'neckPain ~ ageY + gender + dailycont','Distribution','binomial');
+% univariate
+mdl_age = fitglm(data_comp,'neckPain ~ ageY','Distribution','binomial');
+a = ExpCalc95fromSE(table2array(mdl_age.Coefficients(2,1)),table2array(mdl_age.Coefficients(2,2)));
+disp(['age: ' num2str(a(1)) ' [' num2str(a(2)) ', ' num2str(a(3)) ']'])
+
+mdl_sex = fitglm(data_comp,'neckPain ~ gender','Distribution','binomial');
+a = ExpCalc95fromSE(table2array(mdl_sex.Coefficients(2,1)),table2array(mdl_sex.Coefficients(2,2)));
+disp(['sex: ' num2str(a(1)) ' [' num2str(a(2)) ', ' num2str(a(3)) ']'])
+
+mdl_race = fitglm(data_comp,'neckPain ~ race','Distribution','binomial');a = ExpCalc95fromSE(table2array(mdl_sex.Coefficients(2,1)),table2array(mdl_sex.Coefficients(2,2)));
+disp(['race: ' num2str(a(1)) ' [' num2str(a(2)) ', ' num2str(a(3)) ']'])
+
+mdl_ethnicity = fitglm(data_comp,'neckPain ~ ethnicity','Distribution','binomial');
+mdl_severity = fitglm(data_comp,'neckPain ~ severity_grade','Distribution','binomial');
+mdl_disability = fitglm(data_comp,'neckPain ~ pedmidas_grade','Distribution','binomial');
+mdl_freq_bad = fitglm(data_comp,'neckPain ~ freq_bad','Distribution','binomial');
+mdl_cont = fitglm(data_comp,'neckPain ~ dailycont','Distribution','binomial');
+mdl_pain_lat = fitglm(data_comp,'neckPain ~ pain_lat','Distribution','binomial');
+mdl_pressure = fitglm(data_comp,'neckPain ~ pressure','Distribution','binomial');
+mdl_pulsate = fitglm(data_comp,'neckPain ~ pulsate','Distribution','binomial');
+mdl_neuralgia = fitglm(data_comp,'neckPain ~ neuralgia','Distribution','binomial');
+mdl_active = fitglm(data_comp,'neckPain ~ active','Distribution','binomial');
+mdl_valsalva = fitglm(data_comp,'neckPain ~ valsalva','Distribution','binomial');
+mdl_position = fitglm(data_comp,'neckPain ~ position','Distribution','binomial');
+mdl_dx = fitglm(data_comp,'neckPain ~ ICHD3dx','Distribution','binomial');
+
+
+% multivariate
+mdl_Mult = fitglm(data_comp,'neckPain ~ ageY + gender + race + ethnicity + dailycont + severity_grade + pedmidas_grade + pain_lat + position + valsalva + active + pulsate + pressure + neuralgia + freq_bad + ICHD3dx','Distribution','binomial');
+
+%% compare those who completed enough of the questionnaire to be included, vs. those who had incomplete information
+
+mdl_incomp = fitglm(comp_incomp,'complete ~ ageY + gender + race + ethnicity','Distribution','binomial');
