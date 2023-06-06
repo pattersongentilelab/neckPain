@@ -49,6 +49,8 @@ data_comp.anxdep(data_comp.p_psych_prob___anxiety==0 & data_comp.p_psych_prob___
 data_comp.anxdep(data_comp.p_psych_prob___anxiety==1 & data_comp.p_psych_prob___depress==1) = 3;
 data_comp.anxdep2 = data_comp.anxdep;
 data_comp.anxdep = categorical(data_comp.anxdep,[0 1 2 3],{'neither','anxiety','depression','anxietydepression'});
+data_comp.anxdepBin = data_comp.anxdep2;
+data_comp.anxdepBin(data_comp.anxdepBin>0) = 1;
 
 data_comp.anxiety = NaN*ones(height(data_comp),1);
 data_comp.anxiety(data_comp.p_psych_prob___anxiety==0) = 0;
@@ -105,43 +107,98 @@ data_comp.assocSxN = sum(table2array(data_comp(:,[170 171 207 209 212:217 219 22
 data_comp.p_con_pattern_duration = categorical(data_comp.p_con_pattern_duration);
 data_comp.p_epi_fre_dur = categorical(data_comp.p_epi_fre_dur,[1 2 3],{'2wk','1mo','3mo'});
 ICHD3 = ichd3_Dx(data_comp);
+ICHD3.dx = reordercats(ICHD3.dx,{'migraine','chronic_migraine','prob_migraine','tth','chronic_tth','tac','new_onset','ndph','pth','other_primary','undefined'});
 ICHD3.dx = mergecats(ICHD3.dx,{'tth','chronic_tth'});
 ICHD3.dx = mergecats(ICHD3.dx,{'ndph','new_onset'});
+ICHD3.dx = mergecats(ICHD3.dx,{'migraine','chronic_migraine','prob_migraine'});
+data_comp.ichd3 = ICHD3.dx;
 
-%% Robust linear regression
+%% Univariate analysis
 % predictor variable: presence of anxiety and/or depression
-mdl_sex = fitlm(data_comp,'age ~ anxdep','RobustOpts','on');
-a = ExpCalc95fromSE(table2array(mdl_sex.Coefficients(2,1)),table2array(mdl_sex.Coefficients(2,2)));
-disp(['sex: ' num2str(a(1)) ' [' num2str(a(2)) ', ' num2str(a(3)) ']'])
-
-mdl_age = fitlm(data_comp,'p_pedmidas_score ~ age','RobustOpts','on');
-a = ExpCalc95fromSE(table2array(mdl_age.Coefficients(2,1)),table2array(mdl_age.Coefficients(2,2)));
-disp(['age: ' num2str(a(1)) ' [' num2str(a(2)) ', ' num2str(a(3)) ']'])
-
-mdl_race = fitlm(data_comp,'p_pedmidas_score ~ race','RobustOpts','on');
-
-
-mdl_ethnicity = fitlm(data_comp,'p_pedmidas_score ~ ethnicity','RobustOpts','on');
-mdl_anxdep_disability = fitlm(data_comp,'p_pedmidas_score ~ anxdep','RobustOpts','on');
-mdl_anxdep_freq = fitlm(data_comp,'freq_bad ~ anxdep','RobustOpts','on');
-mdl_anxdep_sev = fitlm(data_comp,'severity_grade ~ anxdep','RobustOpts','on');
-mdl_anxdep_dailycont = fitlm(data_comp,'dailycont ~ anxdep','RobustOpts','on');
-mdl_bh = fitlm(data_comp,'p_pedmidas_score ~ bh_provider','RobustOpts','on');
-mdl_bh_anxdep = fitlm(data_comp,'p_pedmidas_score ~ bh_provider + anxdep','RobustOpts','on');
+[pAgeAnx,tblAgeAnx,statsAgeAnx] = kruskalwallis(data_comp.ageY,data_comp.anxdep);
+[tblSexAnx,ChiSexAnx,pSexAnx] = crosstab(data_comp.gender,data_comp.anxdep);
+[tblRaceAnx,ChiRaceAnx,pRaceAnx] = crosstab(data_comp.race,data_comp.anxdep);
+[tblEthAnx,ChiEthAnx,pEthAnx] = crosstab(data_comp.ethnicity,data_comp.anxdep);
+[tblBHanx,ChiBHanx,pBHanx] = crosstab(data_comp.bh_provider,data_comp.anxdep);
+[pSevAnx,tblSevAnx,statsSevAnx] = kruskalwallis(data_comp.severity_grade,data_comp.anxdep);
+[pFreqAnx,tblFreqAnx,statsFreqAnx] = kruskalwallis(data_comp.freq_bad,data_comp.anxdep);
+[pPMAnx,tblPMAnx,statsPMAnx] = kruskalwallis(data_comp.p_pedmidas_score,data_comp.anxdep);
+[tblDCanx,ChiDCanx,pDCanx] = crosstab(data_comp.dailycont,data_comp.anxdep);
+[pTrigAnx,tblTrigAnx,statsTrigAnx] = kruskalwallis(data_comp.triggerN,data_comp.anxdep);
+[pASxAnx,tblASxAnx,statsASxAnx] = kruskalwallis(data_comp.assocSxN,data_comp.anxdep);
+[tblICHDanx,ChiICHDanx,pICHDanx] = crosstab(data_comp.ichd3,data_comp.anxdep);
 
 % Outcome variable
+mdl_pedmidasSex = fitlm(data_comp,'p_pedmidas_score ~ gender','RobustOpts','on');
+PM_sex95 = [Calc95fromSE(table2array(mdl_pedmidasSex.Coefficients(2,1)),table2array(mdl_pedmidasSex.Coefficients(2,2))) table2array(mdl_pedmidasSex.Coefficients(2,4))];
 
+mdl_pedmidasAge = fitlm(data_comp,'p_pedmidas_score ~ age','RobustOpts','on');
+PM_age95 = [Calc95fromSE(table2array(mdl_pedmidasAge.Coefficients(2,1)),table2array(mdl_pedmidasAge.Coefficients(2,2))) table2array(mdl_pedmidasAge.Coefficients(2,4))];
 
-mdl_Mdisability = fitlm(data_comp,'p_pedmidas_score ~ gender + ageY + race + ethnicity + anxdep + bh_provider + dailycont + freq_bad + severity_grade','RobustOpts','on');
-plotSlice(mdl_Mdisability)
+mdl_pedmidasRace = fitlm(data_comp,'p_pedmidas_score ~ race','RobustOpts','on');
+PM_race95(1,:) = [Calc95fromSE(table2array(mdl_pedmidasRace.Coefficients(2,1)),table2array(mdl_pedmidasRace.Coefficients(2,2))) table2array(mdl_pedmidasRace.Coefficients(2,4))];
+PM_race95(2,:) = [Calc95fromSE(table2array(mdl_pedmidasRace.Coefficients(3,1)),table2array(mdl_pedmidasRace.Coefficients(3,2))) table2array(mdl_pedmidasRace.Coefficients(3,4))];
+PM_race95(3,:) = [Calc95fromSE(table2array(mdl_pedmidasRace.Coefficients(4,1)),table2array(mdl_pedmidasRace.Coefficients(4,2))) table2array(mdl_pedmidasRace.Coefficients(4,4))];
+PM_race95(4,:) = [Calc95fromSE(table2array(mdl_pedmidasRace.Coefficients(5,1)),table2array(mdl_pedmidasRace.Coefficients(5,2))) table2array(mdl_pedmidasRace.Coefficients(5,4))];
+PM_race95(5,:) = [Calc95fromSE(table2array(mdl_pedmidasRace.Coefficients(6,1)),table2array(mdl_pedmidasRace.Coefficients(6,2))) table2array(mdl_pedmidasRace.Coefficients(6,4))];
+PM_race95(6,:) = [Calc95fromSE(table2array(mdl_pedmidasRace.Coefficients(7,1)),table2array(mdl_pedmidasRace.Coefficients(7,2))) table2array(mdl_pedmidasRace.Coefficients(7,4))];
 
-mdl_MassocSx = fitlm(data_comp,'assocSxN ~ anxdep + gender + ageY + race + ethnicity + p_pedmidas_score + bh_provider','RobustOpts','on');
-plotSlice(mdl_MassocSx)
+mdl_pedmidasEthnicity = fitlm(data_comp,'p_pedmidas_score ~ ethnicity','RobustOpts','on');
+PM_eth95(1,:) = [Calc95fromSE(table2array(mdl_pedmidasEthnicity.Coefficients(2,1)),table2array(mdl_pedmidasEthnicity.Coefficients(2,2))) table2array(mdl_pedmidasEthnicity.Coefficients(2,4))];
+PM_eth95(2,:) = [Calc95fromSE(table2array(mdl_pedmidasEthnicity.Coefficients(3,1)),table2array(mdl_pedmidasEthnicity.Coefficients(3,2))) table2array(mdl_pedmidasEthnicity.Coefficients(3,4))];
+PM_eth95(3,:) = [Calc95fromSE(table2array(mdl_pedmidasEthnicity.Coefficients(4,1)),table2array(mdl_pedmidasEthnicity.Coefficients(4,2))) table2array(mdl_pedmidasEthnicity.Coefficients(4,4))];
 
-mdl_Mtriggers = fitlm(data_comp,'triggerN ~ anxdep + gender + ageY + race + ethnicity + p_pedmidas_score + bh_provider','RobustOpts','on');
-plotSlice(mdl_Mtriggers)
+mdl_pedmidasCont = fitlm(data_comp,'p_pedmidas_score ~ dailycont','RobustOpts','on');
+PM_cont95 = [Calc95fromSE(table2array(mdl_pedmidasCont.Coefficients(2,1)),table2array(mdl_pedmidasCont.Coefficients(2,2))) table2array(mdl_pedmidasCont.Coefficients(2,4))];
+
+mdl_pedmidasBH = fitlm(data_comp,'p_pedmidas_score ~ bh_provider','RobustOpts','on');
+PM_bh95 = [Calc95fromSE(table2array(mdl_pedmidasBH.Coefficients(2,1)),table2array(mdl_pedmidasBH.Coefficients(2,2))) table2array(mdl_pedmidasBH.Coefficients(2,4))];
+
+mdl_pedmidasAD = fitlm(data_comp,'p_pedmidas_score ~ anxdep','RobustOpts','on');
+PM_ad95(1,:) = [Calc95fromSE(table2array(mdl_pedmidasAD.Coefficients(2,1)),table2array(mdl_pedmidasAD.Coefficients(2,2))) table2array(mdl_pedmidasAD.Coefficients(2,4))];
+PM_ad95(2,:) = [Calc95fromSE(table2array(mdl_pedmidasAD.Coefficients(3,1)),table2array(mdl_pedmidasAD.Coefficients(3,2))) table2array(mdl_pedmidasAD.Coefficients(3,4))];
+PM_ad95(3,:) = [Calc95fromSE(table2array(mdl_pedmidasAD.Coefficients(4,1)),table2array(mdl_pedmidasAD.Coefficients(4,2))) table2array(mdl_pedmidasAD.Coefficients(4,4))];
+
+mdl_pedmidasFreq = fitlm(data_comp,'p_pedmidas_score ~ freq_bad','RobustOpts','on');
+PM_freq95 = [Calc95fromSE(table2array(mdl_pedmidasFreq.Coefficients(2,1)),table2array(mdl_pedmidasFreq.Coefficients(2,2))) table2array(mdl_pedmidasFreq.Coefficients(2,4))];
+
+mdl_pedmidasSev = fitlm(data_comp,'p_pedmidas_score ~ severity_grade','RobustOpts','on');
+PM_sev95 = [Calc95fromSE(table2array(mdl_pedmidasSev.Coefficients(2,1)),table2array(mdl_pedmidasSev.Coefficients(2,2))) table2array(mdl_pedmidasSev.Coefficients(2,4))];
+
+mdl_pedmidasTrig = fitlm(data_comp,'p_pedmidas_score ~ triggerN','RobustOpts','on');
+PM_trig95 = [Calc95fromSE(table2array(mdl_pedmidasTrig.Coefficients(2,1)),table2array(mdl_pedmidasTrig.Coefficients(2,2))) table2array(mdl_pedmidasTrig.Coefficients(2,4))];
+
+mdl_pedmidasSx = fitlm(data_comp,'p_pedmidas_score ~ assocSxN','RobustOpts','on');
+PM_sx95 = [Calc95fromSE(table2array(mdl_pedmidasSx.Coefficients(2,1)),table2array(mdl_pedmidasSx.Coefficients(2,2))) table2array(mdl_pedmidasSx.Coefficients(2,4))];
+
+mdl_pedmidasICHD = fitlm(data_comp,'p_pedmidas_score ~ ichd3','RobustOpts','on');
+PM_ichd95(1,:) = [Calc95fromSE(table2array(mdl_pedmidasICHD.Coefficients(2,1)),table2array(mdl_pedmidasICHD.Coefficients(2,2))) table2array(mdl_pedmidasICHD.Coefficients(2,4))];
+PM_ichd95(2,:) = [Calc95fromSE(table2array(mdl_pedmidasICHD.Coefficients(3,1)),table2array(mdl_pedmidasICHD.Coefficients(3,2))) table2array(mdl_pedmidasICHD.Coefficients(3,4))];
+PM_ichd95(3,:) = [Calc95fromSE(table2array(mdl_pedmidasICHD.Coefficients(4,1)),table2array(mdl_pedmidasICHD.Coefficients(4,2))) table2array(mdl_pedmidasICHD.Coefficients(4,4))];
+PM_ichd95(4,:) = [Calc95fromSE(table2array(mdl_pedmidasICHD.Coefficients(5,1)),table2array(mdl_pedmidasICHD.Coefficients(5,2))) table2array(mdl_pedmidasICHD.Coefficients(5,4))];
+PM_ichd95(5,:) = [Calc95fromSE(table2array(mdl_pedmidasICHD.Coefficients(6,1)),table2array(mdl_pedmidasICHD.Coefficients(6,2))) table2array(mdl_pedmidasICHD.Coefficients(6,4))];
+PM_ichd95(6,:) = [Calc95fromSE(table2array(mdl_pedmidasICHD.Coefficients(7,1)),table2array(mdl_pedmidasICHD.Coefficients(7,2))) table2array(mdl_pedmidasICHD.Coefficients(7,4))];
+
+% multiple regression analysis
+mdl_Mdisability = fitlm(data_comp,'p_pedmidas_score ~ gender + ageY + race + ethnicity + anxdep + bh_provider + dailycont + freq_bad + severity_grade + triggerN + assocSxN + ichd3','RobustOpts','on');
+
+tbl_95CI = table(mdl_Mdisability.CoefficientNames','VariableNames',{'Name'});
+tbl_95CI.estimate = zeros(height(tbl_95CI),1);
+tbl_95CI.low95 = zeros(height(tbl_95CI),1);
+tbl_95CI.hi95 = zeros(height(tbl_95CI),1);
+tbl_95CI.p_val = zeros(height(tbl_95CI),1);
+
+for x = 1:mdl_Mdisability.NumCoefficients
+    temp = Calc95fromSE(table2array(mdl_Mdisability.Coefficients(x,1)),table2array(mdl_Mdisability.Coefficients(x,2)));
+    tbl_95CI.estimate(x) = temp(1);
+    tbl_95CI.low95(x) = temp(2);
+    tbl_95CI.hi95(x) = temp(3);
+    tbl_95CI.p_val(x) = table2array(mdl_Mdisability.Coefficients(x,4));
+end
+
 
 
 %% compare those who completed enough of the questionnaire to be included, vs. those who had incomplete information
 
 mdl_incomp = fitglm(comp_incomp,'complete ~ ageY + gender + race + ethnicity','Distribution','binomial');
+
