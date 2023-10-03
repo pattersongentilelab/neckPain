@@ -202,3 +202,16 @@ end
 
 mdl_incomp = fitglm(comp_incomp,'complete ~ ageY + gender + race + ethnicity','Distribution','binomial');
 
+%% plot regression analysis (final model and full model are the same because all variables were either significant or included a priori)
+
+varNum = 1:1:height(tbl_95CI);
+tbl_95CI = flipud(tbl_95CI);
+
+figure
+hold on
+errorbar(tbl_95CI.estimate(1:end-1),varNum(1:end-1),[],[],abs(diff([tbl_95CI.estimate(1:end-1) tbl_95CI.low95(1:end-1)],[],2)),abs(diff([tbl_95CI.estimate(1:end-1) tbl_95CI.hi95(1:end-1)],[],2)),'ok','MarkerFaceColor','k')
+plot([0 0],[varNum(1) varNum(end)],'--k')
+title('Full and Final Model')
+xlabel('Predicted change in PedMIDAS score')
+ax = gca; ax.Box = 'on'; ax.YTick = varNum(1:end-1); ax.YTickLabels = tbl_95CI.Name(1:end-1); ax.YLim = [0 length(varNum)+1]; ax.XLim = [-20 20]; ax.XTick = -50:10:50;
+
