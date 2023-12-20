@@ -104,6 +104,8 @@ data_incomp.complete = zeros(height(data_incomp),1);
 
 comp_incomp = [data_comp;data_incomp];
 
+data_comp = data_start;
+
 %% Univariate analysis of primary predictor with covariates
 % predictor variable: presence of anxiety and/or depression
 [pAgeAnx,tblAgeAnx,statsAgeAnx] = kruskalwallis(data_comp.ageY,data_comp.anxdep);
