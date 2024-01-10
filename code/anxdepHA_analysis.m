@@ -2,13 +2,13 @@
 
 Pfizer_dataBasePath = getpref('neckPainHA','pfizerDataPath');
 
-load([Pfizer_dataBasePath 'PfizerHAdataAug23'])
+load([Pfizer_dataBasePath 'PfizerHAdataDec23'])
 
 
 %% Organize data
 
 data_age = data(data.age>=6 & data.age<18,:); % age criteria
-data_start = data_age(data_age.p_current_ha_pattern=='episodic' | data_age.p_current_ha_pattern=='cons_same' | data_age.p_current_ha_pattern=='cons_flare' | ~isnan(data_age.p_pedmidas_score),:); % answered the first question, or pedmidas
+data_start = data_age(data_age.p_current_ha_pattern=='episodic' | data_age.p_current_ha_pattern=='cons_same' | data_age.p_current_ha_pattern=='cons_flare' | ~isnan(data_age.p_pedmidas_score_epic),:); % answered the first question, or pedmidas
 
 data_start.ageY = floor(data_start.age);
 % Reorder race categories to make white (largest group) the reference group
@@ -27,13 +27,14 @@ data_start.ethnicity = removecats(data_start.ethnicity);
 psych_ros = sum(table2array(data_start(:,534:546)),2); % questions on psychiatric diagnoses was entered
 data_start.psych_ros = psych_ros;
 
+% replace missing pedmidas
 
 % Pedmidas, main outcome variable, convert PedMIDAS score to grade
 data_start.pedmidas_grade = NaN*ones(height(data_start),1);
-data_start.pedmidas_grade(data_start.p_pedmidas_score<=10) = 1;
-data_start.pedmidas_grade(data_start.p_pedmidas_score>10 & data_start.p_pedmidas_score<=30) = 2;
-data_start.pedmidas_grade(data_start.p_pedmidas_score>30 & data_start.p_pedmidas_score<=50) = 3;
-data_start.pedmidas_grade(data_start.p_pedmidas_score>50) = 4;
+data_start.pedmidas_grade(data_start.p_pedmidas_score_epic<=10) = 1;
+data_start.pedmidas_grade(data_start.p_pedmidas_score_epic>10 & data_start.p_pedmidas_score_epic<=30) = 2;
+data_start.pedmidas_grade(data_start.p_pedmidas_score_epic>30 & data_start.p_pedmidas_score_epic<=50) = 3;
+data_start.pedmidas_grade(data_start.p_pedmidas_score_epic>50) = 4;
 
 % Categorize main predictor variable, anxiety only, depression only, both,
 % neither
@@ -96,8 +97,8 @@ data_start.triggerN = sum(table2array(data_start(:,199:221)),2);
 % determine total count for associated symptoms
 data_start.assocSxN = sum(table2array(data_start(:,[236:245 247:259 261:273 275:280 282:294])),2);
 
-data_comp = data_start(data_start.psych_ros>0 & ~isnan(data_start.p_pedmidas_score),:);
-data_incomp = data_start(data_start.psych_ros==0 | isnan(data_start.p_pedmidas_score),:);
+data_comp = data_start(data_start.psych_ros>0 & ~isnan(data_start.p_pedmidas_score_epic),:);
+data_incomp = data_start(data_start.psych_ros==0 | isnan(data_start.p_pedmidas_score_epic),:);
 
 data_comp.complete = ones(height(data_comp),1);
 data_incomp.complete = zeros(height(data_incomp),1);
@@ -121,32 +122,32 @@ data_comp = data_start;
 [tblICHDanx,ChiICHDanx,pICHDanx] = crosstab(data_comp.ichd3,data_comp.anxdep);
 
 % Outcome variable
-mdl_pedmidasSex = fitlm(data_comp,'p_pedmidas_score ~ gender','RobustOpts','on');
+mdl_pedmidasSex = fitlm(data_comp,'p_pedmidas_score_epic ~ gender','RobustOpts','on');
 
-mdl_pedmidasAge = fitlm(data_comp,'p_pedmidas_score ~ age','RobustOpts','on');
+mdl_pedmidasAge = fitlm(data_comp,'p_pedmidas_score_epic ~ age','RobustOpts','on');
 
-mdl_pedmidasRace = fitlm(data_comp,'p_pedmidas_score ~ race','RobustOpts','on');
+mdl_pedmidasRace = fitlm(data_comp,'p_pedmidas_score_epic ~ race','RobustOpts','on');
 
-mdl_pedmidasEthnicity = fitlm(data_comp,'p_pedmidas_score ~ ethnicity','RobustOpts','on');
+mdl_pedmidasEthnicity = fitlm(data_comp,'p_pedmidas_score_epic ~ ethnicity','RobustOpts','on');
 
-mdl_pedmidasCont = fitlm(data_comp,'p_pedmidas_score ~ dailycont','RobustOpts','on');
+mdl_pedmidasCont = fitlm(data_comp,'p_pedmidas_score_epic ~ dailycont','RobustOpts','on');
 
-mdl_pedmidasBH = fitlm(data_comp,'p_pedmidas_score ~ bh_provider','RobustOpts','on');
+mdl_pedmidasBH = fitlm(data_comp,'p_pedmidas_score_epic ~ bh_provider','RobustOpts','on');
 
-mdl_pedmidasAD = fitlm(data_comp,'p_pedmidas_score ~ anxdep','RobustOpts','on');
+mdl_pedmidasAD = fitlm(data_comp,'p_pedmidas_score_epic ~ anxdep','RobustOpts','on');
 
-mdl_pedmidasFreq = fitlm(data_comp,'p_pedmidas_score ~ freq_bad','RobustOpts','on');
+mdl_pedmidasFreq = fitlm(data_comp,'p_pedmidas_score_epic ~ freq_bad','RobustOpts','on');
 
-mdl_pedmidasSev = fitlm(data_comp,'p_pedmidas_score ~ severity_grade','RobustOpts','on');
+mdl_pedmidasSev = fitlm(data_comp,'p_pedmidas_score_epic ~ severity_grade','RobustOpts','on');
 
-mdl_pedmidasTrig = fitlm(data_comp,'p_pedmidas_score ~ triggerN','RobustOpts','on');
+mdl_pedmidasTrig = fitlm(data_comp,'p_pedmidas_score_epic ~ triggerN','RobustOpts','on');
 
-mdl_pedmidasSx = fitlm(data_comp,'p_pedmidas_score ~ assocSxN','RobustOpts','on');
+mdl_pedmidasSx = fitlm(data_comp,'p_pedmidas_score_epic ~ assocSxN','RobustOpts','on');
 
-mdl_pedmidasICHD = fitlm(data_comp,'p_pedmidas_score ~ ichd3','RobustOpts','on');
+mdl_pedmidasICHD = fitlm(data_comp,'p_pedmidas_score_epic ~ ichd3','RobustOpts','on');
 
 % multivariable linear regression analysis (primary predictor anxiety/depression, primary outcome pedmidas)
-mdl_Mdisability = fitlm(data_comp,'p_pedmidas_score ~ gender + ageY + race + ethnicity + anxdep + bh_provider + dailycont + freq_bad + severity_grade + triggerN + assocSxN + ichd3','RobustOpts','on');
+mdl_Mdisability = fitlm(data_comp,'p_pedmidas_score_epic ~ gender + ageY + race + ethnicity + anxdep + bh_provider + dailycont + freq_bad + severity_grade + triggerN + assocSxN + ichd3','RobustOpts','on');
 tbl_Mdisability = lm_tbl_plot(mdl_Mdisability);
 
 
@@ -155,50 +156,50 @@ tbl_Mdisability = lm_tbl_plot(mdl_Mdisability);
 mdl_incomp = fitglm(comp_incomp,'complete ~ ageY + gender + race + ethnicity','Distribution','binomial');
 
 
-%% secondary analysis after November 2022 with less missing data
-
-data_nomiss = comp_incomp(comp_incomp.visit_dt>='2022-11-01',:); % no exclusion based on missing data
-
-% predictor variable: presence of anxiety and/or depression for low missing
-% dataset
-[pAgeAnx2,tblAgeAnx2,statsAgeAnx2] = kruskalwallis(data_nomiss.ageY,data_nomiss.anxdep);
-[tblSexAnx2,ChiSexAnx2,pSexAnx2] = crosstab(data_nomiss.gender,data_nomiss.anxdep);
-[tblRaceAnx2,ChiRaceAnx2,pRaceAnx2] = crosstab(data_nomiss.race,data_nomiss.anxdep);
-[tblEthAnx2,ChiEthAnx2,pEthAnx2] = crosstab(data_nomiss.ethnicity,data_nomiss.anxdep);
-[tblBHanx2,ChiBHanx2,pBHanx2] = crosstab(data_nomiss.bh_provider,data_nomiss.anxdep);
-[pSevAnx2,tblSevAnx2,statsSevAnx2] = kruskalwallis(data_nomiss.severity_grade,data_nomiss.anxdep);
-[pFreqAnx2,tblFreqAnx2,statsFreqAnx2] = kruskalwallis(data_nomiss.freq_bad,data_nomiss.anxdep);
-[pPMAnx2,tblPMAnx2,statsPMAnx2] = kruskalwallis(data_nomiss.p_pedmidas_score,data_nomiss.anxdep);
-[tblDCanx2,ChiDCanx2,pDCanx2] = crosstab(data_nomiss.dailycont,data_nomiss.anxdep);
-[pTrigAnx2,tblTrigAnx2,statsTrigAnx2] = kruskalwallis(data_nomiss.triggerN,data_nomiss.anxdep);
-[pASxAnx2,tblASxAnx2,statsASxAnx2] = kruskalwallis(data_nomiss.assocSxN,data_nomiss.anxdep);
-[tblICHDanx2,ChiICHDanx2,pICHDanx2] = crosstab(data_nomiss.ichd3,data_nomiss.anxdep);
-
-
-% Outcome variable
-mdl_pedmidasSex2 = fitlm(data_nomiss,'p_pedmidas_score ~ gender','RobustOpts','on');
-
-mdl_pedmidasAge2 = fitlm(data_nomiss,'p_pedmidas_score ~ age','RobustOpts','on');
-
-mdl_pedmidasRace2 = fitlm(data_nomiss,'p_pedmidas_score ~ race','RobustOpts','on');
-
-mdl_pedmidasEthnicity2 = fitlm(data_nomiss,'p_pedmidas_score ~ ethnicity','RobustOpts','on');
-
-mdl_pedmidasCont2 = fitlm(data_nomiss,'p_pedmidas_score ~ dailycont','RobustOpts','on');
-
-mdl_pedmidasBH2 = fitlm(data_nomiss,'p_pedmidas_score ~ bh_provider','RobustOpts','on');
-
-mdl_pedmidasAD2 = fitlm(data_nomiss,'p_pedmidas_score ~ anxdep','RobustOpts','on');
-
-mdl_pedmidasFreq2 = fitlm(data_nomiss,'p_pedmidas_score ~ freq_bad','RobustOpts','on');
-
-mdl_pedmidasSev2 = fitlm(data_nomiss,'p_pedmidas_score ~ severity_grade','RobustOpts','on');
-
-mdl_pedmidasTrig2 = fitlm(data_nomiss,'p_pedmidas_score ~ triggerN','RobustOpts','on');
-
-mdl_pedmidasSx2 = fitlm(data_nomiss,'p_pedmidas_score ~ assocSxN','RobustOpts','on');
-
-mdl_pedmidasICHD2 = fitlm(data_nomiss,'p_pedmidas_score ~ ichd3','RobustOpts','on');
-
-mdl_Mdisability_nomiss = fitlm(data_nomiss,'p_pedmidas_score ~ gender + ageY + race + ethnicity + anxdep + bh_provider + dailycont + freq_bad + severity_grade + triggerN + assocSxN + ichd3','RobustOpts','on');
-tbl_Mdisability_nomiss = lm_tbl_plot(mdl_Mdisability_nomiss);
+% %% secondary analysis after November 2022 with less missing data
+% 
+% data_nomiss = comp_incomp(comp_incomp.visit_dt>='2022-11-01',:); % no exclusion based on missing data
+% 
+% % predictor variable: presence of anxiety and/or depression for low missing
+% % dataset
+% [pAgeAnx2,tblAgeAnx2,statsAgeAnx2] = kruskalwallis(data_nomiss.ageY,data_nomiss.anxdep);
+% [tblSexAnx2,ChiSexAnx2,pSexAnx2] = crosstab(data_nomiss.gender,data_nomiss.anxdep);
+% [tblRaceAnx2,ChiRaceAnx2,pRaceAnx2] = crosstab(data_nomiss.race,data_nomiss.anxdep);
+% [tblEthAnx2,ChiEthAnx2,pEthAnx2] = crosstab(data_nomiss.ethnicity,data_nomiss.anxdep);
+% [tblBHanx2,ChiBHanx2,pBHanx2] = crosstab(data_nomiss.bh_provider,data_nomiss.anxdep);
+% [pSevAnx2,tblSevAnx2,statsSevAnx2] = kruskalwallis(data_nomiss.severity_grade,data_nomiss.anxdep);
+% [pFreqAnx2,tblFreqAnx2,statsFreqAnx2] = kruskalwallis(data_nomiss.freq_bad,data_nomiss.anxdep);
+% [pPMAnx2,tblPMAnx2,statsPMAnx2] = kruskalwallis(data_nomiss.p_pedmidas_score_epic,data_nomiss.anxdep);
+% [tblDCanx2,ChiDCanx2,pDCanx2] = crosstab(data_nomiss.dailycont,data_nomiss.anxdep);
+% [pTrigAnx2,tblTrigAnx2,statsTrigAnx2] = kruskalwallis(data_nomiss.triggerN,data_nomiss.anxdep);
+% [pASxAnx2,tblASxAnx2,statsASxAnx2] = kruskalwallis(data_nomiss.assocSxN,data_nomiss.anxdep);
+% [tblICHDanx2,ChiICHDanx2,pICHDanx2] = crosstab(data_nomiss.ichd3,data_nomiss.anxdep);
+% 
+% 
+% % Outcome variable
+% mdl_pedmidasSex2 = fitlm(data_nomiss,'p_pedmidas_score_epic ~ gender','RobustOpts','on');
+% 
+% mdl_pedmidasAge2 = fitlm(data_nomiss,'p_pedmidas_score_epic ~ age','RobustOpts','on');
+% 
+% mdl_pedmidasRace2 = fitlm(data_nomiss,'p_pedmidas_score_epic ~ race','RobustOpts','on');
+% 
+% mdl_pedmidasEthnicity2 = fitlm(data_nomiss,'p_pedmidas_score_epic ~ ethnicity','RobustOpts','on');
+% 
+% mdl_pedmidasCont2 = fitlm(data_nomiss,'p_pedmidas_score_epic ~ dailycont','RobustOpts','on');
+% 
+% mdl_pedmidasBH2 = fitlm(data_nomiss,'p_pedmidas_score_epic ~ bh_provider','RobustOpts','on');
+% 
+% mdl_pedmidasAD2 = fitlm(data_nomiss,'p_pedmidas_score_epic ~ anxdep','RobustOpts','on');
+% 
+% mdl_pedmidasFreq2 = fitlm(data_nomiss,'p_pedmidas_score_epic ~ freq_bad','RobustOpts','on');
+% 
+% mdl_pedmidasSev2 = fitlm(data_nomiss,'p_pedmidas_score_epic ~ severity_grade','RobustOpts','on');
+% 
+% mdl_pedmidasTrig2 = fitlm(data_nomiss,'p_pedmidas_score_epic ~ triggerN','RobustOpts','on');
+% 
+% mdl_pedmidasSx2 = fitlm(data_nomiss,'p_pedmidas_score_epic ~ assocSxN','RobustOpts','on');
+% 
+% mdl_pedmidasICHD2 = fitlm(data_nomiss,'p_pedmidas_score_epic ~ ichd3','RobustOpts','on');
+% 
+% mdl_Mdisability_nomiss = fitlm(data_nomiss,'p_pedmidas_score_epic ~ gender + ageY + race + ethnicity + anxdep + bh_provider + dailycont + freq_bad + severity_grade + triggerN + assocSxN + ichd3','RobustOpts','on');
+% tbl_Mdisability_nomiss = lm_tbl_plot(mdl_Mdisability_nomiss);
