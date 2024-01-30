@@ -7,13 +7,14 @@ load([Pfizer_dataBasePath 'PfizerHAdataAug23'])
 
 %% Organize data
 
-data_date = data(data.visit_dt<'2023-01-02',:); % date criteria
+data_date = data(data.visit_dt<'2023-12-31',:); % date criteria
 data_age = data_date(data_date.age>=6 & data_date.age<18,:); % age criteria
 data_start = data_age(data_age.p_current_ha_pattern=='episodic' | data_age.p_current_ha_pattern=='cons_same' | data_age.p_current_ha_pattern=='cons_flare' | ~isnan(data_age.p_pedmidas_score),:); % answered the first question, or pedmidas
 
 data_start.ageY = floor(data_start.age);
-% Reorder race categories to make white (largest group) the reference group
-data_start.race = reordercats(data_start.race,{'white','black','asian','am_indian','pacific_island','no_answer','unk'});
+% Reorder race categories to make white (largest group) the reference groupdata_start.race = reordercats(data_start.race,{'white','black','asian','am_indian','pacific_island','no_answer','unk'});
+data_start.raceFull = reordercats(data_start.race,{'white','black','asian','am_indian','pacific_island','no_answer','unk'});
+data_start.race = reordercats(data_start.raceFull,{'white','black','asian','am_indian','pacific_island','no_answer','unk'});
 data_start.race = mergecats(data_start.race,{'am_indian','pacific_island','no_answer','unk'},'other');
 data_start.race(data_start.race=='other') = '<undefined>';
 data_start.race = removecats(data_start.race);
@@ -83,8 +84,11 @@ data_start.severity_grade(data_start.p_sev_overall=='sev') = 3;
 % Headache diagnosis and pain quality types
 ICHD3 = ichd3_Dx(data_start);
 ICHD3.dx = reordercats(ICHD3.dx,{'migraine','prob_migraine','chronic_migraine','tth','chronic_tth','tac','other_primary','new_onset','ndph','pth','undefined'});
+data_start.ichd3Full = ICHD3.dx;
 ICHD3.dx = mergecats(ICHD3.dx,{'migraine','prob_migraine','chronic_migraine'});
 ICHD3.dx = mergecats(ICHD3.dx,{'tth','chronic_tth'});
+ICHD3.dx = mergecats(ICHD3.dx,{'ndph','new_onset'});
+ICHD3.dx = mergecats(ICHD3.dx,{'other_primary','tac'});
 data_start.ichd3 = ICHD3.dx;
 data_start.pulsate = ICHD3.pulsate;
 data_start.pressure = ICHD3.pressure;
@@ -95,7 +99,7 @@ data_start.ICHD_data = sum(table2array(ICHD3(:,2:40)),2);
 data_start.triggerN = sum(table2array(data_start(:,199:221)),2);
 
 % determine total count for associated symptoms
-data_start.assocSxN = sum(table2array(data_start(:,[236:245 247:259 261:273 275:280 282:294])),2);
+data_start.assocSxN = sum(table2array(data_start(:,[240:241 277 279 282:289 291 292])),2);
 
 data_comp = data_start(data_start.psych_ros>0 & ~isnan(data_start.p_pedmidas_score),:);
 data_incomp = data_start(data_start.psych_ros==0 | isnan(data_start.p_pedmidas_score),:);
@@ -122,26 +126,37 @@ comp_incomp = [data_comp;data_incomp];
 
 % Outcome variable
 mdl_pedmidasSex = fitlm(data_comp,'p_pedmidas_score ~ gender','RobustOpts','on');
+tbl_PMsex = lm_tbl_plot(mdl_pedmidasSex);
 
 mdl_pedmidasAge = fitlm(data_comp,'p_pedmidas_score ~ age','RobustOpts','on');
+tbl_PMage = lm_tbl_plot(mdl_pedmidasAge);
 
 mdl_pedmidasRace = fitlm(data_comp,'p_pedmidas_score ~ race','RobustOpts','on');
+tbl_PMrace = lm_tbl_plot(mdl_pedmidasRace);
 
 mdl_pedmidasEthnicity = fitlm(data_comp,'p_pedmidas_score ~ ethnicity','RobustOpts','on');
+tbl_PMeth = lm_tbl_plot(mdl_pedmidasEthnicity);
 
 mdl_pedmidasCont = fitlm(data_comp,'p_pedmidas_score ~ dailycont','RobustOpts','on');
+tbl_PpedmidasCont = lm_tbl_plot(mdl_pedmidasCont);
 
 mdl_pedmidasAD = fitlm(data_comp,'p_pedmidas_score ~ anxdep','RobustOpts','on');
+tbl_pedmidasAD = lm_tbl_plot(mdl_pedmidasAD);
 
 mdl_pedmidasFreq = fitlm(data_comp,'p_pedmidas_score ~ freq_bad','RobustOpts','on');
+tbl_pedmidasFreq = lm_tbl_plot(mdl_pedmidasFreq);
 
 mdl_pedmidasSev = fitlm(data_comp,'p_pedmidas_score ~ severity_grade','RobustOpts','on');
+tbl_pedmidasSev = lm_tbl_plot(mdl_pedmidasSev);
 
 mdl_pedmidasTrig = fitlm(data_comp,'p_pedmidas_score ~ triggerN','RobustOpts','on');
+tbl_pedmidasTrig = lm_tbl_plot(mdl_pedmidasTrig);
 
 mdl_pedmidasSx = fitlm(data_comp,'p_pedmidas_score ~ assocSxN','RobustOpts','on');
+tbl_pedmidasSx = lm_tbl_plot(mdl_pedmidasSx);
 
 mdl_pedmidasICHD = fitlm(data_comp,'p_pedmidas_score ~ ichd3','RobustOpts','on');
+tbl_pedmidasICHD = lm_tbl_plot(mdl_pedmidasICHD);
 
 % multivariable linear regression analysis (primary predictor anxiety/depression, primary outcome pedmidas)
 mdl_Mdisability = fitlm(data_comp,'p_pedmidas_score ~ gender + ageY + race + ethnicity + anxdep + dailycont + freq_bad + severity_grade + triggerN + assocSxN + ichd3','RobustOpts','on');
@@ -151,11 +166,23 @@ tbl_Mdisability = lm_tbl_plot(mdl_Mdisability);
 %% sub-analysis of behavioral health provider involvement
 
 mdl_pedmidasBH = fitlm(data_comp(data_comp.anxiety==1|data_comp.depression==1,:),'p_pedmidas_score ~ bh_provider','RobustOpts','on');
+tbl_pedmidasBH = lm_tbl_plot(mdl_pedmidasBH);
 
 %% compare those who completed enough of the questionnaire to be included, vs. those who had incomplete information, if therre are significant differences calculate propensity score matching
 
-mdl_incomp_age = fitglm(comp_incomp,'complete ~ ageY','Distribution','binomial');
+mdl_incomp = fitglm(comp_incomp,'complete ~ ageY + gender + race + ethnicity','Distribution','binomial');
+tbl_mdl_incomp = brm_tbl_plot(mdl_incomp);
 
-mdl_incomp_race = fitglm(comp_incomp,'complete ~ race','Distribution','binomial');
+%% Check minima and maxima
 
-mdl_incomp = fitglm(comp_incomp,'complete ~ ageY + gender + race + ethnicity + freq_bad + dailycont + severity_grade','Distribution','binomial');
+comp_incomp.p_pedmidas_scoreHi = comp_incomp.p_pedmidas_score;
+comp_incomp.p_pedmidas_scoreHi(isnan(comp_incomp.p_pedmidas_score)) = 540;
+
+mdl_MdisabilityHi = fitlm(comp_incomp,'p_pedmidas_scoreHi ~ gender + ageY + race + ethnicity + anxdep + dailycont + freq_bad + severity_grade + triggerN + assocSxN + ichd3','RobustOpts','on');
+tbl_MdisabilityHi = lm_tbl_plot(mdl_MdisabilityHi);
+
+comp_incomp.p_pedmidas_scoreLo = comp_incomp.p_pedmidas_score;
+comp_incomp.p_pedmidas_scoreLo(isnan(comp_incomp.p_pedmidas_score)) = 0;
+
+mdl_MdisabilityLo = fitlm(comp_incomp,'p_pedmidas_scoreLo ~ gender + ageY + race + ethnicity + anxdep + dailycont + freq_bad + severity_grade + triggerN + assocSxN + ichd3','RobustOpts','on');
+tbl_MdisabilityLo = lm_tbl_plot(mdl_MdisabilityLo);
