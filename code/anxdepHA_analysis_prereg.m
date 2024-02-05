@@ -4,6 +4,8 @@ Pfizer_dataBasePath = getpref('neckPainHA','pfizerDataPath');
 
 load([Pfizer_dataBasePath 'PfizerHAdataAug23'])
 
+addpath '/Users/pattersonc/Documents/MATLAB/commonFx'
+
 
 %% Organize data
 
@@ -176,7 +178,7 @@ tbl_mdl_incomp = brm_tbl_plot(mdl_incomp);
 %% Check minima and maxima
 
 comp_incomp.p_pedmidas_scoreHi = comp_incomp.p_pedmidas_score;
-comp_incomp.p_pedmidas_scoreHi(isnan(comp_incomp.p_pedmidas_score)) = 540;
+comp_incomp.p_pedmidas_scoreHi(isnan(comp_incomp.p_pedmidas_score)) = 240;
 
 mdl_MdisabilityHi = fitlm(comp_incomp,'p_pedmidas_scoreHi ~ gender + ageY + race + ethnicity + anxdep + dailycont + freq_bad + severity_grade + triggerN + assocSxN + ichd3','RobustOpts','on');
 tbl_MdisabilityHi = lm_tbl_plot(mdl_MdisabilityHi);
