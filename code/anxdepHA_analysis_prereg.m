@@ -125,7 +125,7 @@ comp_incomp = [data_comp;data_incomp];
 [pTrigAnx,tblTrigAnx,statsTrigAnx] = kruskalwallis(data_comp.triggerN,data_comp.anxdep);
 [pASxAnx,tblASxAnx,statsASxAnx] = kruskalwallis(data_comp.assocSxN,data_comp.anxdep);
 [tblICHDanx,ChiICHDanx,pICHDanx] = crosstab(data_comp.ichd3,data_comp.anxdep);
-
+[tblAdhdAnx,ChiAdhdAnx,pAdhdAnx] = crosstab(data_comp.p_psych_prob___adhd,data_comp.anxdep);
 % Outcome variable
 mdl_pedmidasSex = fitlm(data_comp,'p_pedmidas_score ~ gender','RobustOpts','on');
 tbl_PMsex = lm_tbl_plot(mdl_pedmidasSex);
@@ -145,6 +145,9 @@ tbl_PpedmidasCont = lm_tbl_plot(mdl_pedmidasCont);
 mdl_pedmidasAD = fitlm(data_comp,'p_pedmidas_score ~ anxdep','RobustOpts','on');
 tbl_pedmidasAD = lm_tbl_plot(mdl_pedmidasAD);
 
+mdl_pedmidasADHD = fitlm(data_comp,'p_pedmidas_score ~ p_psych_prob___adhd','RobustOpts','on');
+tbl_pedmidasADHD = lm_tbl_plot(mdl_pedmidasADHD);
+
 mdl_pedmidasFreq = fitlm(data_comp,'p_pedmidas_score ~ freq_bad','RobustOpts','on');
 tbl_pedmidasFreq = lm_tbl_plot(mdl_pedmidasFreq);
 
@@ -161,8 +164,11 @@ mdl_pedmidasICHD = fitlm(data_comp,'p_pedmidas_score ~ ichd3','RobustOpts','on')
 tbl_pedmidasICHD = lm_tbl_plot(mdl_pedmidasICHD);
 
 % multivariable linear regression analysis (primary predictor anxiety/depression, primary outcome pedmidas)
-mdl_Mdisability = fitlm(data_comp,'p_pedmidas_score ~ gender + ageY + race + ethnicity + anxdep + dailycont + freq_bad + severity_grade + triggerN + assocSxN + ichd3','RobustOpts','on');
-tbl_Mdisability = lm_tbl_plot(mdl_Mdisability);
+mdl_MdisabilityFull = fitlm(data_comp,'p_pedmidas_score ~ gender + ageY + race + ethnicity + anxdep + p_psych_prob___adhd + dailycont + freq_bad + severity_grade + triggerN + assocSxN + ichd3','RobustOpts','on');
+tbl_MdisabilityFull = lm_tbl_plot(mdl_MdisabilityFull);
+
+mdl_MdisabilityFinal = fitlm(data_comp,'p_pedmidas_score ~ gender + ageY + race + ethnicity + anxdep + dailycont + freq_bad + severity_grade + triggerN + assocSxN + ichd3','RobustOpts','on');
+tbl_MdisabilityFinal = lm_tbl_plot(mdl_MdisabilityFinal);
 
 
 %% sub-analysis of behavioral health provider involvement
