@@ -126,6 +126,7 @@ comp_incomp = [data_comp;data_incomp];
 [pASxAnx,tblASxAnx,statsASxAnx] = kruskalwallis(data_comp.assocSxN,data_comp.anxdep);
 [tblICHDanx,ChiICHDanx,pICHDanx] = crosstab(data_comp.ichd3,data_comp.anxdep);
 [tblAdhdAnx,ChiAdhdAnx,pAdhdAnx] = crosstab(data_comp.p_psych_prob___adhd,data_comp.anxdep);
+
 % Outcome variable
 mdl_pedmidasSex = fitlm(data_comp,'p_pedmidas_score ~ gender','RobustOpts','on');
 tbl_PMsex = lm_tbl_plot(mdl_pedmidasSex);

@@ -2,30 +2,35 @@
 
 Pfizer_dataBasePath = getpref('neckPainHA','pfizerDataPath');
 
-load([Pfizer_dataBasePath 'Pfizer_data013123.mat'])
+load([Pfizer_dataBasePath 'PfizerHAdataAug23'])
 
-%% clean raw data
-
-data = data_raw(data_raw.redcap_repeat_instrument~='visit_diagnoses' & ...
-    data_raw.redcap_repeat_instrument~='imaging',:); % removes imaging and follow up visits
+addpath '/Users/pattersonc/Documents/MATLAB/commonFx'
 
 %% apply exclusion criteria
 
-data_age = data(data.age>=6 & data.age<18,:); % age criteria
+data_date = data(data.visit_dt>'2017-06-01' & data.visit_dt<'2023-12-31',:); % date criteria
+data_age = data_date(data_date.age>=6 & data_date.age<18,:); % age criteria
 data_start = data_age(data_age.p_current_ha_pattern=='episodic' | data_age.p_current_ha_pattern=='cons_same' | data_age.p_current_ha_pattern=='cons_flare',:); % started the questionnaire
 
 % Convert age to years
 data_start.ageY = floor(data_start.age);
 
 % Reorder race categories to make white (largest group) the reference group
+data_start.raceFull = data_start.race;
 data_start.race = reordercats(data_start.race,{'white','black','asian','am_indian','pacific_island','no_answer','unk'});
+data_start.race = mergecats(data_start.race,{'am_indian','pacific_island','no_answer','unk'},'other');
+data_start.race(data_start.race=='other') = '<undefined>';
+data_start.race = removecats(data_start.race);
 
 % Reorder ethnicity categories to make non-hispanic (largest group) the
 % reference group
 data_start.ethnicity = reordercats(data_start.ethnicity,{'no_hisp','hisp','no_answer','unk'});
+data_start.ethnicity = mergecats(data_start.ethnicity,{'no_answer','unk'},'unk_no_ans');
+data_start.ethnicity(data_start.ethnicity=='unk_no_ans') = '<undefined>';
+data_start.ethnicity = removecats(data_start.ethnicity);
 
-pain_loc = sum(table2array(data_start(:,102:111)),2); % pain location was filled out (neck pain)
-assoc_oth_sx = sum(table2array(data_start(:,211:224)),2); % associated symptoms were filled out (neck pain)
+pain_loc = sum(table2array(data_start(:,172:181)),2); % pain location was filled out (neck pain)
+assoc_oth_sx = sum(table2array(data_start(:,281:294)),2); % associated symptoms were filled out (neck pain)
 data_comp = data_start(pain_loc>0 | assoc_oth_sx>0,:);
 data_incomp = data_start(pain_loc==0 & assoc_oth_sx==0,:);
 
@@ -74,7 +79,7 @@ data_comp.active(data_comp.p_activity == 'feel_worse' | data_comp.p_trigger___ex
 data_comp.active((data_comp.p_activity == 'feel_better' | data_comp.p_activity == 'no_change' | data_comp.p_activity == 'move') & data_comp.p_trigger___exercise==0) = 0;
 
 % Determine if valsalva is a trigger for headache
-data_comp.valsalva = sum(table2array(data_comp(:,158:160)),2);
+data_comp.valsalva = sum(table2array(data_comp(:,228:230)),2);
 data_comp.valsalva(data_comp.valsalva>0) = 1;
 
 % Determine if headache is positional
@@ -128,13 +133,14 @@ data_comp.abd(data_comp.p_gi_prob___abd_pain==1) = 1;
 
 %% Headache diagnosis
 data_comp.p_con_pattern_duration = categorical(data_comp.p_con_pattern_duration);
-data_comp.p_epi_fre_dur = categorical(data_comp.p_epi_fre_dur,[1 2 3],{'2wk','1mo','3mo'});
+data_comp.p_epi_fre_dur = categorical(data_comp.p_epi_fre_dur);
 
 ICHD3 = ichd3_Dx(data_comp);
 ICHD3.dx = reordercats(ICHD3.dx,{'migraine','chronic_migraine','prob_migraine','tth','chronic_tth','tac','new_onset','ndph','pth','other_primary','undefined'});
 ICHD3.dx = mergecats(ICHD3.dx,{'tth','chronic_tth'});
 ICHD3.dx = mergecats(ICHD3.dx,{'ndph','new_onset'});
 ICHD3.dx = mergecats(ICHD3.dx,{'migraine','chronic_migraine','prob_migraine'});
+ICHD3.dx = mergecats(ICHD3.dx,{'other_primary','tac'});
 data_comp.ichd3 = ICHD3.dx;
 
 data_comp.pulsate = ICHD3.pulsate;
@@ -142,174 +148,102 @@ data_comp.pressure = ICHD3.pressure;
 data_comp.neuralgia = ICHD3.neuralgia;
 data_comp.ICHD3dx = ICHD3.dx;
 
-%% Binary logistic regression
+%% Primary predictor (daily/continuous headache)
+[pAgeDc,tblAgeDc,statsAgeDc] = kruskalwallis(data_comp.ageY,data_comp.dailycont);
+[tblSexDc,ChiSexDc,pSexDc] = crosstab(data_comp.gender,data_comp.dailycont);
+[tblRaceDc,ChiRaceDc,pRaceDc] = crosstab(data_comp.race,data_comp.dailycont);
+[tblethDc,ChiEthDc,pEthDc] = crosstab(data_comp.ethnicity,data_comp.dailycont);
+[tblDxDc,ChiDxDc,pDxDc] = crosstab(data_comp.ICHD3dx,data_comp.dailycont);
+[pSevDc,tblSevDc,statsSevDc] = kruskalwallis(data_comp.ageY,data_comp.severity_grade);
+[pFreqDc,tblFreqDc,statsFreqDc] = kruskalwallis(data_comp.ageY,data_comp.freq_bad);
+[pDisDc,tblDisDc,statsDisDc] = kruskalwallis(data_comp.ageY,data_comp.pedmidas_grade);
+[tblPressureDc,ChiPressureDc,pPressureDc] = crosstab(data_comp.gender,data_comp.pressure);
+[tblPulsateDc,ChiPulsateDc,pPulsateDc] = crosstab(data_comp.gender,data_comp.pulsate);
+[tblNeuralDc,ChiNeuralDc,pNeuralDc] = crosstab(data_comp.gender,data_comp.neuralgia);
+[tblLightheadDc,ChiLightheadDc,pLightheadDc] = crosstab(data_comp.gender,data_comp.lighthead);
+[tblRingDc,ChiRingDc,pRingDc] = crosstab(data_comp.gender,data_comp.ringing);
+[tblSpinDc,ChiSpinDc,pSpinDc] = crosstab(data_comp.gender,data_comp.spinning);
+[tblBalanceDc,ChiBalanceDc,pBalanceDc] = crosstab(data_comp.gender,data_comp.balance);
+[tblBlureDc,ChiBlurDc,pBlurDc] = crosstab(data_comp.gender,data_comp.blurry);
+[tblThinkDc,ChiThinkDc,pThinkDc] = crosstab(data_comp.gender,data_comp.thinking);
+[pSensDc,tblSensDc,statsSensDc] = kruskalwallis(data_comp.ageY,data_comp.sensory_sensitivity);
+[tblTingleDc,ChiTingleDc,pTingleDc] = crosstab(data_comp.gender,data_comp.tingling);
+[tblActiveDc,ChiActiveDc,pActiveDc] = crosstab(data_comp.gender,data_comp.active);
+[tblValsDc,ChiValsDc,pValsDc] = crosstab(data_comp.gender,data_comp.valsalva);
+[tblPosDc,ChiPosDc,pPosDc] = crosstab(data_comp.gender,data_comp.position);
+[tblLatDc,ChiLatDc,pLatDc] = crosstab(data_comp.gender,data_comp.pain_lat);
+%% Primary outcome: logistic regression
 
 % univariable
 mdl_age = fitglm(data_comp,'neckPain ~ ageY','Distribution','binomial');
+tbl_ageNp = brm_tbl_plot(mdl_age);
 mdl_sex = fitglm(data_comp,'neckPain ~ gender','Distribution','binomial');
+tbl_sexNp = brm_tbl_plot(mdl_sex);
 mdl_race = fitglm(data_comp,'neckPain ~ race','Distribution','binomial');a = ExpCalc95fromSE(table2array(mdl_sex.Coefficients(2,1)),table2array(mdl_sex.Coefficients(2,2)));
+tbl_raceNp = brm_tbl_plot(mdl_race);
 mdl_ethnicity = fitglm(data_comp,'neckPain ~ ethnicity','Distribution','binomial');
-
+tbl_ethnicityNp = brm_tbl_plot(mdl_ethnicity);
 mdl_severity = fitglm(data_comp,'neckPain ~ severity_grade','Distribution','binomial');
+tbl_severityNp = brm_tbl_plot(mdl_severity);
 mdl_disability = fitglm(data_comp,'neckPain ~ pedmidas_grade','Distribution','binomial');
+tbl_disabilityNp = brm_tbl_plot(mdl_disability);
 mdl_freq_bad = fitglm(data_comp,'neckPain ~ freq_bad','Distribution','binomial');
+tbl_freq_badNp = brm_tbl_plot(mdl_freq_bad);
 mdl_cont = fitglm(data_comp,'neckPain ~ dailycont','Distribution','binomial');
-
+tbl_contNp = brm_tbl_plot(mdl_cont);
 mdl_pain_lat = fitglm(data_comp,'neckPain ~ pain_lat','Distribution','binomial');
+tbl_pain_latNp = brm_tbl_plot(mdl_pain_lat);
 mdl_pressure = fitglm(data_comp,'neckPain ~ pressure','Distribution','binomial');
+tbl_pressureNp = brm_tbl_plot(mdl_pressure);
 mdl_pulsate = fitglm(data_comp,'neckPain ~ pulsate','Distribution','binomial');
+tbl_pulsateNp = brm_tbl_plot(mdl_pulsate);
 mdl_neuralgia = fitglm(data_comp,'neckPain ~ neuralgia','Distribution','binomial');
+tbl_neuralgiaNp = brm_tbl_plot(mdl_neuralgia);
 mdl_active = fitglm(data_comp,'neckPain ~ active','Distribution','binomial');
+tbl_activeNp = brm_tbl_plot(mdl_active);
 mdl_valsalva = fitglm(data_comp,'neckPain ~ valsalva','Distribution','binomial');
+tbl_valsalvaNp = brm_tbl_plot(mdl_valsalva);
 mdl_position = fitglm(data_comp,'neckPain ~ position','Distribution','binomial');
+tbl_positionNp = brm_tbl_plot(mdl_position);
 mdl_dx = fitglm(data_comp,'neckPain ~ ICHD3dx','Distribution','binomial');
+tbl_dxNp = brm_tbl_plot(mdl_dx);
 
 mdl_lighthead = fitglm(data_comp,'neckPain ~ lighthead','Distribution','binomial');
+tbl_lightheadNp = brm_tbl_plot(mdl_lighthead);
 mdl_ringing = fitglm(data_comp,'neckPain ~ ringing','Distribution','binomial');
+tbl_ringingNp = brm_tbl_plot(mdl_ringing);
 mdl_spinning = fitglm(data_comp,'neckPain ~ spinning','Distribution','binomial');
+tbl_spinningNp = brm_tbl_plot(mdl_spinning);
 mdl_balance = fitglm(data_comp,'neckPain ~ balance','Distribution','binomial');
+tbl_balanceNp = brm_tbl_plot(mdl_balance);
 mdl_thinking = fitglm(data_comp,'neckPain ~ thinking','Distribution','binomial');
+tbl_thinkingNp = brm_tbl_plot(mdl_thinking);
 mdl_blurry = fitglm(data_comp,'neckPain ~ blurry','Distribution','binomial');
+tbl_blurryNp = brm_tbl_plot(mdl_blurry);
 mdl_sensory = fitglm(data_comp,'neckPain ~ sensory_sensitivity','Distribution','binomial');
+tbl_sensoryNp = brm_tbl_plot(mdl_sensory);
 mdl_tingling = fitglm(data_comp,'neckPain ~ tingling','Distribution','binomial');
-
+tbl_tinglingNp = brm_tbl_plot(mdl_tingling);
 mdl_dysauto = fitglm(data_comp,'neckPain ~ dysauto','Distribution','binomial');
+tbl_dysautoNp = brm_tbl_plot(mdl_dysauto);
 mdl_abd = fitglm(data_comp,'neckPain ~ abd','Distribution','binomial');
+tbl_abdNp = brm_tbl_plot(mdl_abd);
+
 
 % multivariable
 mdl_Mult = fitglm(data_comp,...
     'neckPain ~ ageY + gender + race + ethnicity + dailycont + severity_grade + pedmidas_grade + freq_bad + pain_lat + active + valsalva + position + pulsate + pressure + neuralgia + lighthead + spinning + balance + ringing + thinking + blurry + sensory_sensitivity + tingling + ICHD3dx + dysauto + abd',...
     'Distribution','binomial');
+tbl_MultNp = brm_tbl_plot(mdl_Mult);
+
 
 % Remove non-significant covariates (p<0.1)
 mdl_MultFinal = fitglm(data_comp,...
-    'neckPain ~ ageY + gender + race + ethnicity + dailycont + pedmidas_grade + freq_bad +  active + position + pressure + balance + ringing + thinking + sensory_sensitivity + tingling + abd',...
+    'neckPain ~ ageY + gender + race + ethnicity + dailycont + pedmidas_grade + freq_bad + pain_lat + active + position + pressure + neuralgia + balance + ringing + sensory_sensitivity + tingling + abd',...
     'Distribution','binomial');
-
-%% plot regression analysis
-figure
-
-var = fliplr({'Age (years)','Sex assigned at birth','Race - Black','Race - Asian','Race - Unknown','Race - no answer','Ethnicity - Hispanic','Ethnicity - no answer',...
-    'daily-continuous HA','HA severity (mild, moderate, severe)','PedMIDAS grade (none, mild, moderate, severe)','Frequency of bad HA','Pain laterality - unilateral side locked',...
-    'Pain laterality - unilateral alternating','Pain laterality - combined','Pain laterality - cannot describe','Induced by exercise','Induced by Valsalva','Positional - worse lying',...
-    'Positional - worse standing','Positional - worse lying and standing','Pain quality - pressure','Pain quality - pulsate','Pain quality - neuralgia','lightheadedness','room spinning',...
-    'balance problems','ear ringing','Trouble thinking','blurry vision','sensory hypersensitivity','numbness/tingling unilateral','numbness/tingling bilateral','numbness/tingling both',...
-    'ICHD3 - TTH','ICHD3 - TAC','ICHD3 - PTH','ICHD3 - NDPH','ICHD3 - Other primary','ICHD3 - Undefined','Comorbid POTS/dysautonomia','Comorbid abdominal pain'});
-varNum = 1:1:length(var);
-
-subplot(1,3,1)
-hold on
-title('Univariable')
-ylabel('Predictor variable')
-ax = gca; ax.Box = 'on'; ax.YTick = varNum; ax.YTickLabels = var; ax.YLim = [0 length(varNum)+1]; ax.XScale = 'log'; ax.XLim = [0.1 10]; ax.XTick = [0.1 1 10]; ax.XTickLabels = [0.1 1 10];
-
-age95 = ExpCalc95fromSE(table2array(mdl_age.Coefficients(2,1)),table2array(mdl_age.Coefficients(2,2))); ageErr = [age95(1)  abs(diff(age95([1 2]))) abs(diff(age95([1 3])))];
-sex95 = ExpCalc95fromSE(table2array(mdl_sex.Coefficients(2,1)),table2array(mdl_sex.Coefficients(2,2))); sexErr = [sex95(1)  abs(diff(sex95([1 2]))) abs(diff(sex95([1 3])))];
-
-raceB95 = ExpCalc95fromSE(table2array(mdl_race.Coefficients(2,1)),table2array(mdl_race.Coefficients(2,2))); raceBErr = [raceB95(1) abs(diff(raceB95([1 2]))) abs(diff(raceB95([1 3])))];
-raceA95 = ExpCalc95fromSE(table2array(mdl_race.Coefficients(3,1)),table2array(mdl_race.Coefficients(3,2))); raceAErr = [raceA95(1)  abs(diff(raceA95([1 2]))) abs(diff(raceA95([1 3])))];
-raceNA95 = ExpCalc95fromSE(table2array(mdl_race.Coefficients(6,1)),table2array(mdl_race.Coefficients(6,2))); raceNAErr = [raceNA95(1)  abs(diff(raceNA95([1 2]))) abs(diff(raceNA95([1 3])))];
-raceU95 = ExpCalc95fromSE(table2array(mdl_race.Coefficients(7,1)),table2array(mdl_race.Coefficients(7,2))); raceUErr = [raceU95(1)  abs(diff(raceU95([1 2]))) abs(diff(raceU95([1 3])))];
-
-ethH95 = ExpCalc95fromSE(table2array(mdl_ethnicity.Coefficients(2,1)),table2array(mdl_ethnicity.Coefficients(2,2))); ethHErr = [ethH95(1)  abs(diff(ethH95([1 2]))) abs(diff(ethH95([1 3])))];
-ethNA95 = ExpCalc95fromSE(table2array(mdl_ethnicity.Coefficients(3,1)),table2array(mdl_ethnicity.Coefficients(3,2))); ethNAErr = [ethNA95(1)  abs(diff(ethNA95([1 2]))) abs(diff(ethNA95([1 3])))];
-cont95 = ExpCalc95fromSE(table2array(mdl_cont.Coefficients(2,1)),table2array(mdl_cont.Coefficients(2,2))); contErr = [cont95(1)  abs(diff(cont95([1 2]))) abs(diff(cont95([1 3])))];
-
-sev95 = ExpCalc95fromSE(table2array(mdl_severity.Coefficients(2,1)),table2array(mdl_severity.Coefficients(2,2))); sevErr = [sev95(1)  abs(diff(sev95([1 2]))) abs(diff(sev95([1 3])))];
-dis95 = ExpCalc95fromSE(table2array(mdl_disability.Coefficients(2,1)),table2array(mdl_disability.Coefficients(2,2))); disErr = [dis95(1)  abs(diff(dis95([1 2]))) abs(diff(dis95([1 3])))];
-freq95 = ExpCalc95fromSE(table2array(mdl_freq_bad.Coefficients(2,1)),table2array(mdl_freq_bad.Coefficients(2,2))); freqErr = [freq95(1)  abs(diff(freq95([1 2]))) abs(diff(freq95([1 3])))];
-
-plu95 = ExpCalc95fromSE(table2array(mdl_pain_lat.Coefficients(2,1)),table2array(mdl_pain_lat.Coefficients(2,2))); pluErr = [plu95(1)  abs(diff(plu95([1 2]))) abs(diff(plu95([1 3])))];
-pla95 = ExpCalc95fromSE(table2array(mdl_pain_lat.Coefficients(3,1)),table2array(mdl_pain_lat.Coefficients(3,2))); plaErr = [pla95(1)  abs(diff(pla95([1 2]))) abs(diff(pla95([1 3])))];
-plc95 = ExpCalc95fromSE(table2array(mdl_pain_lat.Coefficients(4,1)),table2array(mdl_pain_lat.Coefficients(4,2))); plcErr = [plc95(1)  abs(diff(plc95([1 2]))) abs(diff(plc95([1 3])))];
-plcd95 = ExpCalc95fromSE(table2array(mdl_pain_lat.Coefficients(5,1)),table2array(mdl_pain_lat.Coefficients(5,2))); plcdErr = [plcd95(1)  abs(diff(plcd95([1 2]))) abs(diff(plcd95([1 3])))];
-
-ex95 = ExpCalc95fromSE(table2array(mdl_active.Coefficients(2,1)),table2array(mdl_active.Coefficients(2,2))); exErr = [ex95(1)  abs(diff(ex95([1 2]))) abs(diff(ex95([1 3])))];
-val95 = ExpCalc95fromSE(table2array(mdl_valsalva.Coefficients(2,1)),table2array(mdl_valsalva.Coefficients(2,2))); valErr = [val95(1)  abs(diff(val95([1 2]))) abs(diff(val95([1 3])))];
-posS95 = ExpCalc95fromSE(table2array(mdl_position.Coefficients(2,1)),table2array(mdl_position.Coefficients(2,2))); posSErr = [posS95(1)  abs(diff(posS95([1 2]))) abs(diff(posS95([1 3])))];
-posL95 = ExpCalc95fromSE(table2array(mdl_position.Coefficients(3,1)),table2array(mdl_position.Coefficients(3,2))); posLErr = [posL95(1)  abs(diff(posL95([1 2]))) abs(diff(posL95([1 3])))];
-posB95 = ExpCalc95fromSE(table2array(mdl_position.Coefficients(4,1)),table2array(mdl_position.Coefficients(4,2))); posBErr = [posB95(1)  abs(diff(posB95([1 2]))) abs(diff(posB95([1 3])))];
-
-pres95 = ExpCalc95fromSE(table2array(mdl_pressure.Coefficients(2,1)),table2array(mdl_pressure.Coefficients(2,2))); presErr = [pres95(1)  abs(diff(pres95([1 2]))) abs(diff(pres95([1 3])))];
-puls95 = ExpCalc95fromSE(table2array(mdl_pulsate.Coefficients(2,1)),table2array(mdl_pulsate.Coefficients(2,2))); pulsErr = [puls95(1)  abs(diff(puls95([1 2]))) abs(diff(puls95([1 3])))];
-neur95 = ExpCalc95fromSE(table2array(mdl_neuralgia.Coefficients(2,1)),table2array(mdl_neuralgia.Coefficients(2,2))); neurErr = [neur95(1)  abs(diff(neur95([1 2]))) abs(diff(neur95([1 3])))];
-
-lh95 = ExpCalc95fromSE(table2array(mdl_lighthead.Coefficients(2,1)),table2array(mdl_lighthead.Coefficients(2,2))); lhErr = [lh95(1)  abs(diff(lh95([1 2]))) abs(diff(lh95([1 3])))];
-spin95 = ExpCalc95fromSE(table2array(mdl_spinning.Coefficients(2,1)),table2array(mdl_spinning.Coefficients(2,2))); spinErr = [spin95(1)  abs(diff(spin95([1 2]))) abs(diff(spin95([1 3])))];
-bal95 = ExpCalc95fromSE(table2array(mdl_balance.Coefficients(2,1)),table2array(mdl_balance.Coefficients(2,2))); balErr = [bal95(1)  abs(diff(bal95([1 2]))) abs(diff(bal95([1 3])))];
-ring95 = ExpCalc95fromSE(table2array(mdl_ringing.Coefficients(2,1)),table2array(mdl_ringing.Coefficients(2,2))); ringErr = [ring95(1)  abs(diff(ring95([1 2]))) abs(diff(ring95([1 3])))];
-th95 = ExpCalc95fromSE(table2array(mdl_thinking.Coefficients(2,1)),table2array(mdl_thinking.Coefficients(2,2))); thErr = [th95(1)  abs(diff(th95([1 2]))) abs(diff(th95([1 3])))];
-blur95 = ExpCalc95fromSE(table2array(mdl_blurry.Coefficients(2,1)),table2array(mdl_blurry.Coefficients(2,2))); blurErr = [blur95(1)  abs(diff(blur95([1 2]))) abs(diff(blur95([1 3])))];
-sens95 = ExpCalc95fromSE(table2array(mdl_sensory.Coefficients(2,1)),table2array(mdl_sensory.Coefficients(2,2))); sensErr = [sens95(1)  abs(diff(sens95([1 2]))) abs(diff(sens95([1 3])))];
-tu95 = ExpCalc95fromSE(table2array(mdl_tingling.Coefficients(2,1)),table2array(mdl_tingling.Coefficients(2,2))); tuErr = [tu95(1)  abs(diff(tu95([1 2]))) abs(diff(tu95([1 3])))];
-tb95 = ExpCalc95fromSE(table2array(mdl_tingling.Coefficients(3,1)),table2array(mdl_tingling.Coefficients(3,2))); tbErr = [tb95(1)  abs(diff(tb95([1 2]))) abs(diff(tb95([1 3])))];
-tbo95 = ExpCalc95fromSE(table2array(mdl_tingling.Coefficients(4,1)),table2array(mdl_tingling.Coefficients(4,2))); tboErr = [tbo95(1)  abs(diff(tbo95([1 2]))) abs(diff(tbo95([1 3])))];
-
-tth95 = ExpCalc95fromSE(table2array(mdl_dx.Coefficients(2,1)),table2array(mdl_dx.Coefficients(2,2))); tthErr = [tth95(1)  abs(diff(tth95([1 2]))) abs(diff(tth95([1 3])))];
-tac95 = ExpCalc95fromSE(table2array(mdl_dx.Coefficients(3,1)),table2array(mdl_dx.Coefficients(3,2))); tacErr = [tac95(1)  abs(diff(tac95([1 2]))) abs(diff(tac95([1 3])))];
-ndph95 = ExpCalc95fromSE(table2array(mdl_dx.Coefficients(4,1)),table2array(mdl_dx.Coefficients(4,2))); ndphErr = [ndph95(1)  abs(diff(ndph95([1 2]))) abs(diff(ndph95([1 3])))];
-pth95 = ExpCalc95fromSE(table2array(mdl_dx.Coefficients(5,1)),table2array(mdl_dx.Coefficients(2,2))); pthErr = [pth95(1)  abs(diff(pth95([1 2]))) abs(diff(pth95([1 3])))];
-oth95 = ExpCalc95fromSE(table2array(mdl_dx.Coefficients(6,1)),table2array(mdl_dx.Coefficients(2,2))); othErr = [oth95(1)  abs(diff(oth95([1 2]))) abs(diff(oth95([1 3])))];
-und95 = ExpCalc95fromSE(table2array(mdl_dx.Coefficients(7,1)),table2array(mdl_dx.Coefficients(2,2))); undErr = [und95(1)  abs(diff(und95([1 2]))) abs(diff(und95([1 3])))];
-
-dys95 = ExpCalc95fromSE(table2array(mdl_dysauto.Coefficients(2,1)),table2array(mdl_dysauto.Coefficients(2,2))); dysErr = [dys95(1)  abs(diff(dys95([1 2]))) abs(diff(dys95([1 3])))];
-abd95 = ExpCalc95fromSE(table2array(mdl_abd.Coefficients(2,1)),table2array(mdl_abd.Coefficients(2,2))); abdErr = [abd95(1)  abs(diff(abd95([1 2]))) abs(diff(abd95([1 3])))];
-
-
-x = [abdErr(1) dysErr(1) undErr(1) othErr(1) ndphErr(1) pthErr(1) tacErr(1) tthErr(1) tboErr(1) tbErr(1) tuErr(1) sensErr(1) blurErr(1) thErr(1) ringErr(1) ...
-    balErr(1) spinErr(1) lhErr(1) neurErr(1) pulsErr(1) presErr(1) posBErr(1) posSErr(1) posLErr(1) valErr(1) exErr(1) plcdErr(1) plcErr(1) plaErr(1)...
-    pluErr(1) freqErr(1) disErr(1) sevErr(1) contErr(1) ethNAErr(1) ethHErr(1) raceUErr(1) raceNAErr(1) raceAErr(1) raceBErr(1) sexErr(1) ageErr(1)];
-xneg = [abdErr(2) dysErr(2) undErr(2) othErr(2) ndphErr(2) pthErr(2) tacErr(2) tthErr(2) tboErr(2) tbErr(2) tuErr(2) sensErr(2) blurErr(2) thErr(2) ringErr(2) ...
-    balErr(2) spinErr(2) lhErr(2) neurErr(2) pulsErr(2) presErr(2) posBErr(2) posSErr(2) posLErr(2) valErr(2) exErr(2) plcdErr(2) plcErr(2) plaErr(2)...
-    pluErr(2) freqErr(2) disErr(2) sevErr(2) contErr(2) ethNAErr(2) ethHErr(2) raceUErr(2) raceNAErr(2) raceAErr(2) raceBErr(2) sexErr(2) ageErr(2)];
-xpos = [abdErr(3) dysErr(3) undErr(3) othErr(3) ndphErr(3) pthErr(3) tacErr(3) tthErr(3) tboErr(3) tbErr(3) tuErr(3) sensErr(3) blurErr(3) thErr(3) ringErr(3) ...
-    balErr(3) spinErr(3) lhErr(3) neurErr(3) pulsErr(3) presErr(3) posBErr(3) posSErr(3) posLErr(3) valErr(3) exErr(3) plcdErr(3) plcErr(3) plaErr(3)...
-    pluErr(3) freqErr(3) disErr(3) sevErr(3) contErr(3) ethNAErr(3) ethHErr(3) raceUErr(3) raceNAErr(3) raceAErr(3) raceBErr(3) sexErr(3) ageErr(3)];
-
-errorbar(x,varNum,[],[],xneg,xpos,'ok','MarkerFaceColor','k')
-plot([1 1],[varNum(1) varNum(end)+1],'--k')
-
-subplot(1,3,2)
-hold on
-title('Full Model')
-xlabel('Odds ratio of neck pain')
-ax = gca; ax.Box = 'on'; ax.YTick = varNum; ax.YLim = [0 length(varNum)+1]; ax.XScale = 'log'; ax.XLim = [0.1 10]; ax.XTick = [0.1 1 10]; ax.XTickLabels = [0.1 1 10];
-
-varNumFull = fliplr([12 2 6 7 11 10 3 4 13 16 14 15 22:25 17 18 20 19 21 39 38 40 27:32 26 33:35 41 42 44 43 45 46 36 37]);
-
-Err = zeros(length(varNumFull),3);
-full_model95 = zeros(length(varNumFull),3);
-for x = varNum
-    temp = ExpCalc95fromSE(table2array(mdl_Mult.Coefficients(varNumFull(x),1)),table2array(mdl_Mult.Coefficients(varNumFull(x),2)));
-    Err(x,:) = [temp(1)  abs(diff(temp([1 2]))) abs(diff(temp([1 3])))];
-    full_model95(x,:) = temp;
-end
-full_model95 = flipud(full_model95);
-
-errorbar(Err(:,1),varNum,[],[],Err(:,2),Err(:,3),'ok','MarkerFaceColor','k')
-plot([1 1],[varNum(1) varNum(end)+1],'--k')
-
-
-subplot(1,3,3)
-hold on
-title('Final Model')
-ax = gca; ax.Box = 'on'; ax.YTick = varNum; ax.YLim = [0 length(varNum)+1]; ax.XScale = 'log'; ax.XLim = [0.1 10]; ax.XTick = [0.1 1 10]; ax.XTickLabels = [0.1 1 10];
-
-varNumFinalCount = [1 9:12 14:16 21:24 26 31 32 34:42];
-varNumFinal = fliplr([12 2 6 7 11 10 3 4 13:15 16 18 17 19 28 21:23 20 24:26 27]);
-
-ErrFin = zeros(length(varNumFinal),3);
-final_model95 = zeros(length(varNumFinal),3);
-for x = 1:length(varNumFinalCount)
-    temp = ExpCalc95fromSE(table2array(mdl_MultFinal.Coefficients(varNumFinal(x),1)),table2array(mdl_MultFinal.Coefficients(varNumFinal(x),2)));
-    ErrFin(x,:) = [temp(1)  abs(diff(temp([1 2]))) abs(diff(temp([1 3])))];
-    final_model95(x,:) = temp;
-end
-final_model95 = flipud(final_model95);
-
-errorbar(ErrFin(:,1),varNumFinalCount,[],[],ErrFin(:,2),ErrFin(:,3),'ok','MarkerFaceColor','k')
-plot([1 1],[varNum(1) varNum(end)+1],'--k')
+tbl_MultFinalNp = brm_tbl_plot(mdl_MultFinal);
 
 %% compare those who completed enough of the questionnaire to be included, vs. those who had incomplete information
 
 mdl_incomp = fitglm(comp_incomp,'complete ~ ageY + gender + race + ethnicity','Distribution','binomial');
+tbl_incomp = brm_tbl_plot(mdl_incomp);
