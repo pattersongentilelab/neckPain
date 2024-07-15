@@ -13,6 +13,8 @@ data_date = data(data.visit_dt<'2023-12-31',:); % date criteria
 data_age = data_date(data_date.age>=6 & data_date.age<18,:); % age criteria
 data_start = data_age(data_age.p_current_ha_pattern=='episodic' | data_age.p_current_ha_pattern=='cons_same' | data_age.p_current_ha_pattern=='cons_flare' | ~isnan(data_age.p_pedmidas_score),:); % answered the first question, or pedmidas
 
+data_start.clin_loc = categorical(data_start.clin_loc);
+
 data_start.ageY = floor(data_start.age);
 % Reorder race categories to make white (largest group) the reference groupdata_start.race = reordercats(data_start.race,{'white','black','asian','am_indian','pacific_island','no_answer','unk'});
 data_start.raceFull = reordercats(data_start.race,{'white','black','asian','am_indian','pacific_island','no_answer','unk'});
@@ -28,8 +30,22 @@ data_start.ethnicity = mergecats(data_start.ethnicity,{'no_answer','unk'},'unk_n
 data_start.ethnicity(data_start.ethnicity=='unk_no_ans') = '<undefined>';
 data_start.ethnicity = removecats(data_start.ethnicity);
 
-psych_ros = sum(table2array(data_start(:,534:546)),2); % questions on psychiatric diagnoses was entered
-data_start.psych_ros = psych_ros;
+data_start.overall_ros = sum(table2array(data_start(:,429:435)),2); % questions on overall problems was entered
+data_start.eye_ros = sum(table2array(data_start(:,436:443)),2); % questions on ophtho problems was entered
+data_start.ent_ros = sum(table2array(data_start(:,444:454)),2); % questions on ENT problems was entered
+data_start.heart_ros = sum(table2array(data_start(:,455:464)),2); % questions on cardiac problems was entered
+data_start.lung_ros = sum(table2array(data_start(:,465:472)),2); % questions on pulm problems was entered
+data_start.sleep_ros = sum(table2array(data_start(:,473:480)),2); % questions on sleep problems was entered
+data_start.gi_ros = sum(table2array(data_start(:,481:488)),2); % questions on GI problems was entered
+data_start.gu_ros = sum(table2array(data_start(:,489:496)),2); % questions on gu problems was entered
+data_start.musc_ros = sum(table2array(data_start(:,497:504)),2); % questions on musc problems was entered
+data_start.skin_ros = sum(table2array(data_start(:,505:510)),2); % questions on derm problems was entered
+data_start.endo_ros = sum(table2array(data_start(:,511:518)),2); % questions on endo problems was entered
+data_start.hema_ros = sum(table2array(data_start(:,517:525)),2); % questions on heme problems was entered
+data_start.immu_ros = sum(table2array(data_start(:,526:533)),2); % questions on immuno problems was entered
+data_start.psych_ros = sum(table2array(data_start(:,534:546)),2); % questions on psychiatric diagnoses was entered
+data_start.neuro_ros = sum(table2array(data_start(:,547:562)),2); % questions on neuro problems was entered
+
 
 
 % Pedmidas, main outcome variable, convert PedMIDAS score to grade
@@ -50,6 +66,7 @@ data_start.anxdep2 = data_start.anxdep;
 data_start.anxdep = categorical(data_start.anxdep,[0 1 2 3],{'neither','anxiety','depression','anxietydepression'});
 data_start.anxdepBin = data_start.anxdep2;
 data_start.anxdepBin(data_start.anxdepBin>0) = 1;
+
 
 data_start.anxiety = NaN*ones(height(data_start),1);
 data_start.anxiety(data_start.p_psych_prob___anxiety==0) = 0;
@@ -111,7 +128,7 @@ data_incomp.complete = zeros(height(data_incomp),1);
 
 comp_incomp = [data_comp;data_incomp];
 
-
+comp_incomp.anxdep(isundefined(comp_incomp.anxdep)) = 'missing';
 %% Univariate analysis of primary predictor with covariates
 % predictor variable: presence of anxiety and/or depression
 [pAgeAnx,tblAgeAnx,statsAgeAnx] = kruskalwallis(data_comp.ageY,data_comp.anxdep);
@@ -177,10 +194,38 @@ tbl_MdisabilityFinal = lm_tbl_plot(mdl_MdisabilityFinal);
 mdl_pedmidasBH = fitlm(data_comp(data_comp.anxiety==1|data_comp.depression==1,:),'p_pedmidas_score ~ bh_provider','RobustOpts','on');
 tbl_pedmidasBH = lm_tbl_plot(mdl_pedmidasBH);
 
-%% compare those who completed enough of the questionnaire to be included, vs. those who had incomplete information, if therre are significant differences calculate propensity score matching
+%% compare those who completed enough of the questionnaire to be included, vs. those who had incomplete information
 
-mdl_incomp = fitglm(comp_incomp,'complete ~ ageY + gender + race + ethnicity','Distribution','binomial');
-tbl_mdl_incomp = brm_tbl_plot(mdl_incomp);
+mdl_incomp_age = fitglm(comp_incomp,'complete ~ ageY','Distribution','binomial');
+tbl_incomp_age = brm_tbl_plot(mdl_incomp_age);
+
+mdl_incomp_sex = fitglm(comp_incomp,'complete ~ gender','Distribution','binomial');
+tbl_incomp_sex = brm_tbl_plot(mdl_incomp_sex);
+
+mdl_incomp_eth = fitglm(comp_incomp,'complete ~ ethnicity','Distribution','binomial');
+tbl_incomp_eth = brm_tbl_plot(mdl_incomp_eth);
+
+mdl_incomp_race = fitglm(comp_incomp,'complete ~ race','Distribution','binomial');
+tbl_incomp_race = brm_tbl_plot(mdl_incomp_race);
+
+
+comp_incomp.anxdepMiss = mergecats(comp_incomp.anxdep,{'neither','anxiety','depression','anxietydepression'});
+comp_incomp.anxdepMiss = renamecats(comp_incomp.anxdepMiss,{'neither'},{'not missing'});
+
+mdl_incompA_age = fitglm(comp_incomp,'anxdepMiss ~ ageY','Distribution','binomial');
+tbl_incompA_age = brm_tbl_plot(mdl_incompA_age);
+
+mdl_incompA_sex = fitglm(comp_incomp,'anxdepMiss ~ gender','Distribution','binomial');
+tbl_incompA_sex = brm_tbl_plot(mdl_incompA_sex);
+
+mdl_incompA_eth = fitglm(comp_incomp,'anxdepMiss ~ ethnicity','Distribution','binomial');
+tbl_incompA_eth = brm_tbl_plot(mdl_incompA_eth);
+
+mdl_incompA_race = fitglm(comp_incomp,'anxdepMiss ~ race','Distribution','binomial');
+tbl_incompA_race = brm_tbl_plot(mdl_incompA_race);
+
+mdl_incompA_clinic = fitglm(comp_incomp,'anxdepMiss ~ clin_loc','Distribution','binomial');
+tbl_incompA_clinic = brm_tbl_plot(mdl_incompA_clinic);
 
 %% Check minima and maxima
 
