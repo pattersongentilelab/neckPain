@@ -2,7 +2,7 @@
 
 Pfizer_dataBasePath = getpref('neckPainHA','pfizerDataPath');
 
-load([Pfizer_dataBasePath 'PfizerHAdataAug23'])
+load([Pfizer_dataBasePath 'PfizerHAdataDec23'])
 
 addpath '/Users/pattersonc/Documents/MATLAB/commonFx'
 
